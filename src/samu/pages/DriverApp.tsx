@@ -312,52 +312,52 @@ export const DriverApp: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans pb-12">
+    <div className="min-h-screen bg-[#050811] text-slate-100 flex flex-col font-sans pb-12 selection:bg-orange-500 selection:text-white">
       <SamuNavbar currentApp="driver" />
 
       {/* FULLSCREEN DISPATCH OFFER MODAL (HIGH PRIORITY SIREN & 20s TIMER) */}
       {dispatchOffer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-red-950/90 backdrop-blur-md animate-fadeIn">
-          <div className="bg-slate-900 border-4 border-red-500 rounded-3xl w-full max-w-lg shadow-2xl p-6 text-white text-center relative overflow-hidden animate-pulse">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#050811]/90 backdrop-blur-xl animate-fadeIn">
+          <div className="bg-[#0F172A] border-2 border-rose-500 rounded-3xl w-full max-w-lg shadow-[0_0_50px_rgba(225,29,72,0.4)] p-6 sm:p-8 text-white text-center relative overflow-hidden animate-pulse">
             {/* Top Bar with Timer */}
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full bg-red-600 text-white">
+              <span className="text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-[#E11D48] text-white shadow-md shadow-rose-900/50">
                 NOVA OCORRÊNCIA DISPARADA
               </span>
-              <div className="flex items-center gap-1.5 text-red-400 font-mono font-bold text-sm">
-                <Clock className="w-4 h-4 animate-spin" />
+              <div className="flex items-center gap-1.5 text-rose-400 font-mono font-black text-sm bg-rose-950/50 px-2.5 py-1 rounded-full border border-rose-500/30">
+                <Clock className="w-4 h-4 animate-spin text-rose-400" />
                 <span>{countdown}s</span>
               </div>
             </div>
 
             {/* Severity Manchester */}
-            <div className="w-20 h-20 rounded-full bg-red-600 mx-auto flex items-center justify-center text-white shadow-xl shadow-red-600/50 mb-3">
-              <Ambulance className="w-10 h-10" />
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#E11D48] to-[#9F1239] mx-auto flex items-center justify-center text-white shadow-xl shadow-rose-900/60 mb-3 border border-rose-400/40">
+              <Ambulance className="w-10 h-10 animate-bounce" />
             </div>
 
-            <h2 className="text-2xl font-black text-white">{dispatchOffer.chiefComplaint}</h2>
-            <p className="text-red-400 font-bold text-sm mt-0.5">Prioridade: {dispatchOffer.severityColor}</p>
+            <h2 className="text-2xl font-black text-white tracking-tight">{dispatchOffer.chiefComplaint}</h2>
+            <p className="text-rose-400 font-black text-xs uppercase tracking-wider mt-1">Prioridade: {dispatchOffer.severityColor}</p>
 
             {/* Info Grid */}
-            <div className="bg-slate-800/80 border border-slate-700 rounded-2xl p-4 my-5 text-left text-xs space-y-2">
+            <div className="bg-[#050811]/70 border border-slate-800 rounded-2xl p-4 my-5 text-left text-xs space-y-2.5 shadow-inner">
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Vítima:</span>
-                <strong className="text-white">{dispatchOffer.patientName} ({dispatchOffer.patientAge || 'Adulto'})</strong>
+                <strong className="text-white font-bold">{dispatchOffer.patientName} ({dispatchOffer.patientAge || 'Adulto'})</strong>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Consciência / Respiração:</span>
-                <strong className="text-emerald-400">
-                  {dispatchOffer.patientConscious ? 'Consciente' : 'Inconsciente'} /{' '}
+                <span className="text-slate-400">Estado Vital:</span>
+                <strong className="text-emerald-400 font-bold">
+                  {dispatchOffer.patientConscious ? 'Consciente' : 'Inconsciente'} •{' '}
                   {dispatchOffer.patientBreathing ? 'Respirando' : 'Parada Resp.'}
                 </strong>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Distância / Tempo Estimado:</span>
-                <strong className="text-amber-400">{dispatchOffer.distanceKm.toFixed(1)} km (~{dispatchOffer.etaMinutes} min)</strong>
+                <span className="text-slate-400">Distância / Chegada:</span>
+                <strong className="text-amber-400 font-mono font-bold">{dispatchOffer.distanceKm.toFixed(1)} km (~{dispatchOffer.etaMinutes} min)</strong>
               </div>
-              <div className="pt-1 border-t border-slate-700">
-                <span className="text-slate-400 block mb-0.5">Endereço da Cena:</span>
-                <p className="text-white font-medium">{dispatchOffer.pickupAddress}</p>
+              <div className="pt-2 border-t border-slate-800">
+                <span className="text-slate-400 block mb-0.5 text-[10px] uppercase font-bold">Endereço da Cena:</span>
+                <p className="text-white font-semibold leading-snug">{dispatchOffer.pickupAddress}</p>
               </div>
             </div>
 
@@ -366,7 +366,7 @@ export const DriverApp: React.FC = () => {
               <button
                 type="button"
                 onClick={handleRejectOffer}
-                className="py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm transition-colors cursor-pointer"
+                className="py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
               >
                 RECUSAR
               </button>
@@ -374,7 +374,7 @@ export const DriverApp: React.FC = () => {
               <button
                 type="button"
                 onClick={handleAcceptOffer}
-                className="py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base tracking-wider uppercase shadow-xl shadow-emerald-600/40 hover:scale-[1.02] transition-all cursor-pointer"
+                className="py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm tracking-wider uppercase shadow-xl shadow-emerald-900/50 hover:scale-[1.02] transition-all cursor-pointer"
               >
                 ACEITAR OCORRÊNCIA
               </button>
@@ -385,11 +385,11 @@ export const DriverApp: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 w-full flex-1 flex flex-col">
         {/* TOP STATUS BAR: Shift switch & Vehicle selector */}
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 mb-6 shadow-xl flex flex-wrap items-center justify-between gap-4">
+        <div className="bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-5 mb-6 shadow-2xl flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-md ${
-                isOnline ? 'bg-emerald-600 shadow-emerald-600/30' : 'bg-slate-700'
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-md border ${
+                isOnline ? 'bg-emerald-600 border-emerald-400/40 shadow-emerald-900/40' : 'bg-slate-800 border-slate-700'
               }`}
             >
               <Ambulance className="w-6 h-6" />
@@ -398,14 +398,14 @@ export const DriverApp: React.FC = () => {
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-black text-white">{selectedAmbulance?.code || 'USA-01'}</h1>
                 <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                  className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase ${
                     isOnline ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'
                   }`}
                 >
                   {isOnline ? 'Em Plantão (Online)' : 'Fora de Serviço'}
                 </span>
               </div>
-              <p className="text-xs text-slate-400">Condutor: {driverName} | Placa: {selectedAmbulance?.plate || 'BRA-1901'}</p>
+              <p className="text-xs text-slate-400 mt-0.5">Condutor: {driverName} • Placa: {selectedAmbulance?.plate || 'BRA-1901'}</p>
             </div>
           </div>
 
@@ -415,7 +415,7 @@ export const DriverApp: React.FC = () => {
               value={selectedAmbulanceId}
               onChange={(e) => setSelectedAmbulanceId(e.target.value)}
               disabled={!!activeCall}
-              className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500"
+              className="bg-[#050811] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500 transition-colors font-medium"
             >
               {ambulances.map((amb) => (
                 <option key={amb.id} value={amb.id}>
@@ -446,26 +446,28 @@ export const DriverApp: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-1">
             {/* Left Column: Mission Controls & BAPH */}
             <div className="lg:col-span-5 flex flex-col gap-4">
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+              <div className="bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
                 <div className="flex items-center justify-between mb-4">
-                  <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-red-600/20 text-red-400 border border-red-500/30">
+                  <span className="text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
                     Ocorrência em Andamento
                   </span>
-                  <span className="text-xs font-mono text-slate-400">ID: {activeCall.id.slice(0, 8)}</span>
+                  <span className="text-[11px] font-mono text-slate-400 bg-[#050811] px-2 py-0.5 rounded-lg border border-slate-800">
+                    ID: {activeCall.id.slice(0, 8)}
+                  </span>
                 </div>
 
-                <h3 className="text-xl font-black text-white mb-1">{activeCall.chief_complaint}</h3>
-                <p className="text-xs text-slate-400 mb-4">
+                <h3 className="text-xl font-black text-white mb-1 tracking-tight">{activeCall.chief_complaint}</h3>
+                <p className="text-xs text-slate-400 mb-4 font-medium">
                   Solicitante: <strong className="text-white">{activeCall.patient_name || activeCall.citizen_name}</strong>
                 </p>
 
                 {/* Status Stepper Progress */}
-                <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 mb-5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
+                <div className="bg-[#050811]/70 border border-slate-800 rounded-2xl p-4 mb-5 shadow-inner">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-2">
                     Etapa Atual da Missão:
                   </span>
-                  <div className="text-sm font-extrabold text-amber-400 flex items-center gap-2">
-                    <Navigation className="w-4 h-4 animate-spin" />
+                  <div className="text-sm font-black text-amber-400 flex items-center gap-2">
+                    <Navigation className="w-4 h-4 animate-spin text-amber-400" />
                     <span>
                       {activeCall.status === 'en_route_pickup' && '1. Deslocando até o local da vítima'}
                       {activeCall.status === 'arrived_scene' && '2. No local - Atendimento e estabilização'}
@@ -481,7 +483,7 @@ export const DriverApp: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleAdvanceState('arrived_scene')}
-                      className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base uppercase tracking-wider shadow-xl shadow-emerald-600/30 transition-all cursor-pointer"
+                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm uppercase tracking-wider shadow-xl shadow-emerald-900/50 transition-all cursor-pointer"
                     >
                       CHEGUEI AO LOCAL DA OCORRÊNCIA
                     </button>
@@ -490,13 +492,13 @@ export const DriverApp: React.FC = () => {
                   {activeCall.status === 'arrived_scene' && (
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-1">
-                          Selecionar Hospital de Destino:
+                        <label className="block text-[11px] font-black text-slate-300 uppercase tracking-wider mb-1.5">
+                          Hospital de Destino:
                         </label>
                         <select
                           value={selectedHospitalId}
                           onChange={(e) => setSelectedHospitalId(e.target.value)}
-                          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-red-500"
+                          className="w-full bg-[#050811] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-rose-500 font-medium"
                         >
                           {hospitals.map((h) => (
                             <option key={h.id} value={h.id}>
@@ -509,7 +511,7 @@ export const DriverApp: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleAdvanceState('transporting')}
-                        className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-base uppercase tracking-wider shadow-xl shadow-blue-600/30 transition-all cursor-pointer"
+                        className="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-sm uppercase tracking-wider shadow-xl shadow-blue-900/50 transition-all cursor-pointer"
                       >
                         INICIAR TRANSPORTE AO HOSPITAL
                       </button>
@@ -520,7 +522,7 @@ export const DriverApp: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleAdvanceState('arrived_hospital')}
-                      className="w-full py-4 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-black text-base uppercase tracking-wider shadow-xl shadow-purple-600/30 transition-all cursor-pointer"
+                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-black text-sm uppercase tracking-wider shadow-xl shadow-purple-900/50 transition-all cursor-pointer"
                     >
                       CHEGADA AO HOSPITAL
                     </button>
@@ -530,7 +532,7 @@ export const DriverApp: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleAdvanceState('completed')}
-                      className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base uppercase tracking-wider shadow-xl shadow-emerald-600/30 transition-all cursor-pointer"
+                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm uppercase tracking-wider shadow-xl shadow-emerald-900/50 transition-all cursor-pointer"
                     >
                       FINALIZAR OCORRÊNCIA & LIBERAR VIATURA
                     </button>
@@ -541,7 +543,7 @@ export const DriverApp: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setChatOpen(true)}
-                  className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  className="w-full py-3 rounded-2xl bg-[#050811] hover:bg-slate-800 border border-slate-800 text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
                   <MessageSquare className="w-4 h-4 text-blue-400" />
                   <span>Chat Direto com o Solicitante</span>
@@ -549,14 +551,14 @@ export const DriverApp: React.FC = () => {
               </div>
 
               {/* Digital BAPH Card (Vital Signs in Transit) */}
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl text-xs">
-                <div className="flex items-center justify-between mb-3">
+              <div className="bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-5 shadow-xl text-xs">
+                <div className="flex items-center justify-between mb-3.5">
                   <div className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-red-500" />
-                    <span className="font-bold text-white uppercase tracking-wider text-[11px]">BAPH Digital - Sinais Vitais</span>
+                    <Activity className="w-4 h-4 text-[#E11D48]" />
+                    <span className="font-black text-white uppercase tracking-wider text-[11px]">BAPH Digital - Sinais Vitais</span>
                   </div>
                   {baphSaved && (
-                    <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                    <span className="text-[10px] text-emerald-400 font-black flex items-center gap-1 bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-500/30">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Sincronizado
                     </span>
                   )}
@@ -564,33 +566,33 @@ export const DriverApp: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="text-[10px] text-slate-400 block mb-0.5">Escala Glasgow (3-15):</label>
+                    <label className="text-[10px] font-bold text-slate-400 block mb-1">Escala Glasgow (3-15):</label>
                     <input
                       type="number"
                       min={3}
                       max={15}
                       value={glasgow}
                       onChange={(e) => setGlasgow(Number(e.target.value))}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
+                      className="w-full bg-[#050811] border border-slate-800 rounded-xl px-2.5 py-2 text-white font-mono text-center focus:border-rose-500"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-slate-400 block mb-0.5">Pressão Arterial (PA):</label>
-                    <div className="flex items-center gap-1">
+                    <label className="text-[10px] font-bold text-slate-400 block mb-1">Pressão Arterial (PA):</label>
+                    <div className="flex items-center gap-1.5">
                       <input
                         type="text"
                         value={sysBp}
                         onChange={(e) => setSysBp(e.target.value)}
                         placeholder="120"
-                        className="w-12 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-center text-white"
+                        className="w-12 bg-[#050811] border border-slate-800 rounded-xl px-2 py-2 text-center text-white font-mono focus:border-rose-500"
                       />
-                      <span>/</span>
+                      <span className="text-slate-500">/</span>
                       <input
                         type="text"
                         value={diaBp}
                         onChange={(e) => setDiaBp(e.target.value)}
                         placeholder="80"
-                        className="w-12 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-center text-white"
+                        className="w-12 bg-[#050811] border border-slate-800 rounded-xl px-2 py-2 text-center text-white font-mono focus:border-rose-500"
                       />
                     </div>
                   </div>
@@ -598,21 +600,21 @@ export const DriverApp: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div>
-                    <label className="text-[10px] text-slate-400 block mb-0.5">Freq. Cardíaca (BPM):</label>
+                    <label className="text-[10px] font-bold text-slate-400 block mb-1">Freq. Cardíaca (BPM):</label>
                     <input
                       type="number"
                       value={heartRate}
                       onChange={(e) => setHeartRate(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
+                      className="w-full bg-[#050811] border border-slate-800 rounded-xl px-2.5 py-2 text-white font-mono text-center focus:border-rose-500"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-slate-400 block mb-0.5">Saturação O2 (%):</label>
+                    <label className="text-[10px] font-bold text-slate-400 block mb-1">Saturação O2 (%):</label>
                     <input
                       type="number"
                       value={spo2}
                       onChange={(e) => setSpo2(e.target.value)}
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white"
+                      className="w-full bg-[#050811] border border-slate-800 rounded-xl px-2.5 py-2 text-white font-mono text-center focus:border-rose-500"
                     />
                   </div>
                 </div>
@@ -620,7 +622,7 @@ export const DriverApp: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleSaveBaph}
-                  className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-bold text-xs transition-colors cursor-pointer"
+                  className="w-full py-3 rounded-2xl bg-[#050811] hover:bg-slate-800 border border-slate-800 text-white font-black text-xs uppercase tracking-wider transition-colors cursor-pointer"
                 >
                   Salvar e Transmitir à Central
                 </button>
@@ -628,18 +630,18 @@ export const DriverApp: React.FC = () => {
             </div>
 
             {/* Right Column: Navigation Map */}
-            <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-3xl p-4 shadow-2xl flex flex-col min-h-[480px]">
+            <div className="lg:col-span-7 bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-4 shadow-2xl flex flex-col min-h-[500px]">
               <div className="flex items-center justify-between mb-3 px-2">
                 <div className="flex items-center gap-2">
-                  <Navigation className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs font-bold text-white uppercase tracking-wider">Navegação Turn-by-Turn</span>
+                  <Navigation className="w-4 h-4 text-emerald-400 animate-pulse" />
+                  <span className="text-xs font-black text-white uppercase tracking-wider">Navegação Turn-by-Turn</span>
                 </div>
-                <span className="text-xs font-mono font-bold text-emerald-400">
+                <span className="text-xs font-mono font-black text-emerald-400 bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
                   {speed > 0 ? `${Math.round(speed)} km/h` : 'Parado'}
                 </span>
               </div>
 
-              <div className="flex-1 rounded-2xl overflow-hidden border border-slate-800">
+              <div className="flex-1 rounded-2xl overflow-hidden border border-slate-800 shadow-inner">
                 <LiveMap
                   center={driverPos}
                   zoom={15}
@@ -656,28 +658,28 @@ export const DriverApp: React.FC = () => {
         ) : (
           /* IDLE WAITING FOR CALLS VIEW */
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-1">
-            <div className="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col justify-between">
+            <div className="lg:col-span-4 bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
               <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/30">
                   Plantão Ativo
                 </span>
-                <h2 className="text-2xl font-black text-white mt-2">Aguardando Ocorrências</h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  Seu aplicativo está conectado ao motor de despacho automático. Mantenha o volume alto para ouvir o alerta de emergência.
+                <h2 className="text-2xl font-black text-white mt-3 tracking-tight">Aguardando Ocorrências</h2>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  Seu aplicativo está conectado ao motor de despacho automático. Mantenha o volume ativo para escutar os alertas sonoros.
                 </p>
 
-                <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4 mt-6 text-xs space-y-2">
+                <div className="bg-[#050811]/70 border border-slate-800 rounded-2xl p-4 mt-6 text-xs space-y-2.5 shadow-inner">
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Viatura Alocada:</span>
-                    <strong className="text-white">{selectedAmbulance?.code} ({selectedAmbulance?.type})</strong>
+                    <strong className="text-white font-bold">{selectedAmbulance?.code} ({selectedAmbulance?.type})</strong>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Placa:</span>
-                    <strong className="text-white">{selectedAmbulance?.plate}</strong>
+                    <strong className="text-white font-mono">{selectedAmbulance?.plate}</strong>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Tempo de Resposta Alvo:</span>
-                    <strong className="text-emerald-400">&lt; 8 minutos</strong>
+                    <span className="text-slate-400">Tempo Alvo de Resposta:</span>
+                    <strong className="text-emerald-400 font-bold">&lt; 8 minutos</strong>
                   </div>
                 </div>
               </div>
@@ -689,7 +691,7 @@ export const DriverApp: React.FC = () => {
                     playEmergencySiren();
                     setTimeout(stopEmergencySiren, 2000);
                   }}
-                  className="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  className="w-full py-3.5 rounded-2xl bg-[#050811] hover:bg-slate-800 text-slate-300 font-bold text-xs flex items-center justify-center gap-2 border border-slate-800 transition-colors cursor-pointer"
                 >
                   <Volume2 className="w-4 h-4 text-amber-400" />
                   <span>Testar Sirene Sonora (2 seg)</span>
@@ -697,12 +699,12 @@ export const DriverApp: React.FC = () => {
               </div>
             </div>
 
-            <div className="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-3xl p-4 shadow-xl flex flex-col min-h-[420px]">
+            <div className="lg:col-span-8 bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-4 shadow-2xl flex flex-col min-h-[440px]">
               <div className="flex items-center justify-between mb-3 px-2">
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Área de Cobertura e Bases</span>
-                <span className="text-xs text-slate-500">Petrolina / Juazeiro</span>
+                <span className="text-xs font-black text-slate-300 uppercase tracking-wider">Área de Cobertura e Bases SAMU</span>
+                <span className="text-xs text-slate-500 font-medium">Petrolina / Juazeiro</span>
               </div>
-              <div className="flex-1 rounded-2xl overflow-hidden border border-slate-800">
+              <div className="flex-1 rounded-2xl overflow-hidden border border-slate-800 shadow-inner">
                 <LiveMap
                   center={driverPos}
                   zoom={14}

@@ -2175,3 +2175,74 @@ label span:focus-within {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   SAMU 190 - DARK EMERGENCIAL THEME & RADAR ANIMATIONS
+   ========================================================================== */
+
+/* Leaflet Dark UI Overrides */
+.leaflet-container {
+  background-color: #050811 !important;
+  font-family: inherit;
+}
+
+.samu-popup .leaflet-popup-content-wrapper {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.8), 0 8px 10px -6px rgba(0, 0, 0, 0.8) !important;
+  padding: 2px !important;
+}
+
+.samu-popup .leaflet-popup-tip {
+  background: #0f172a !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-top: none;
+  border-left: none;
+}
+
+.samu-popup .leaflet-popup-content {
+  margin: 4px 6px !important;
+  line-height: 1.4 !important;
+}
+
+.samu-popup a.leaflet-popup-close-button {
+  color: #94a3b8 !important;
+  padding: 8px !important;
+}
+
+.samu-popup a.leaflet-popup-close-button:hover {
+  color: #ffffff !important;
+}
+
+/* Radar & Neon Pulse Animations */
+@keyframes radar-ping-1 {
+  0% { transform: scale(0.8); opacity: 0.9; }
+  50% { opacity: 0.4; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+@keyframes radar-ping-2 {
+  0% { transform: scale(0.8); opacity: 0.8; }
+  50% { opacity: 0.3; }
+  100% { transform: scale(3.2); opacity: 0; }
+}
+
+@keyframes glow-crimson {
+  0%, 100% { box-shadow: 0 0 20px rgba(225, 29, 72, 0.6), inset 0 0 15px rgba(225, 29, 72, 0.3); }
+  50% { box-shadow: 0 0 45px rgba(225, 29, 72, 0.9), inset 0 0 25px rgba(225, 29, 72, 0.5); }
+}
+
+.animate-radar-1 {
+  animation: radar-ping-1 2.4s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+
+.animate-radar-2 {
+  animation: radar-ping-2 3.2s cubic-bezier(0, 0.2, 0.8, 1) 0.8s infinite;
+}
+
+.glow-crimson-btn {
+  animation: glow-crimson 2s ease-in-out infinite;
+}
+

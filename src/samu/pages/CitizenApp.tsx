@@ -237,7 +237,7 @@ export const CitizenApp: React.FC = () => {
   const statusBadge = getStatusBadge();
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans pb-12">
+    <div className="min-h-screen bg-[#050811] text-slate-100 flex flex-col font-sans pb-12 selection:bg-rose-500 selection:text-white">
       <SamuNavbar currentApp="citizen" />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 w-full flex-1 flex flex-col">
@@ -245,35 +245,35 @@ export const CitizenApp: React.FC = () => {
         {!activeCall && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* Left: Big SOS & Triage Card */}
-            <div className="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="lg:col-span-6 bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-rose-600/10 rounded-full blur-3xl pointer-events-none" />
 
               {/* Title & Urgent Badge */}
               <div className="flex items-center justify-between gap-3 mb-6">
                 <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-red-500 bg-red-500/10 px-2.5 py-1 rounded-full border border-red-500/20">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-[#E11D48] bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/30">
                     Chamada de Emergência SAMU 190
                   </span>
-                  <h1 className="text-2xl sm:text-3xl font-black text-white mt-1">Pedir Ambulância</h1>
+                  <h1 className="text-2xl sm:text-3xl font-black text-white mt-2 tracking-tight">Pedir Ambulância</h1>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-500 shrink-0">
-                  <Siren className="w-7 h-7 animate-pulse" />
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#E11D48] to-[#9F1239] border border-rose-500/40 flex items-center justify-center text-white shrink-0 shadow-lg shadow-rose-900/40">
+                  <Siren className="w-7 h-7 animate-pulse text-white" />
                 </div>
               </div>
 
               {/* Detected Location Card */}
-              <div className="bg-slate-800/60 border border-slate-700/80 rounded-2xl p-4 mb-6">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-red-600/30 text-red-400 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="bg-[#050811]/70 border border-slate-800/90 rounded-2xl p-4 mb-6 shadow-inner">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-9 h-9 rounded-xl bg-rose-600/20 border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
                     <MapPin className="w-4 h-4" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Local do Resgate (GPS)</span>
-                      {isLocating && <span className="text-[10px] text-amber-400 animate-pulse">Obtendo GPS...</span>}
+                      {isLocating && <span className="text-[10px] text-amber-400 animate-pulse font-mono">Obtendo GPS...</span>}
                     </div>
-                    <p className="text-sm font-semibold text-white mt-0.5 leading-snug">{address}</p>
-                    <p className="text-[10px] text-slate-500 mt-1">
+                    <p className="text-sm font-bold text-white mt-0.5 leading-snug">{address}</p>
+                    <p className="text-[10px] text-slate-400 mt-1 font-mono">
                       Coordenadas: {userPos[0].toFixed(5)}, {userPos[1].toFixed(5)}
                     </p>
                   </div>
@@ -282,31 +282,31 @@ export const CitizenApp: React.FC = () => {
 
               {/* Quick Manchester Severity Selector */}
               <div className="mb-6">
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2.5">
                   Classificação da Urgência (Protocolo de Manchester)
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {[
-                    { color: 'Vermelho', label: 'Emergência (Imediata)', border: 'border-red-500', bg: 'bg-red-600', text: 'text-red-400' },
-                    { color: 'Laranja', label: 'Muito Urgente (10m)', border: 'border-orange-500', bg: 'bg-orange-600', text: 'text-orange-400' },
-                    { color: 'Amarelo', label: 'Urgente (60m)', border: 'border-yellow-500', bg: 'bg-yellow-600', text: 'text-yellow-400' },
-                    { color: 'Verde', label: 'Pouco Urgente', border: 'border-emerald-500', bg: 'bg-emerald-600', text: 'text-emerald-400' },
+                    { color: 'Vermelho', label: 'Emergência (Imediata)', border: 'border-rose-500', bg: 'bg-[#E11D48]', text: 'text-rose-400' },
+                    { color: 'Laranja', label: 'Muito Urgente (10m)', border: 'border-orange-500', bg: 'bg-[#F97316]', text: 'text-orange-400' },
+                    { color: 'Amarelo', label: 'Urgente (60m)', border: 'border-amber-500', bg: 'bg-[#F59E0B]', text: 'text-amber-400' },
+                    { color: 'Verde', label: 'Pouco Urgente', border: 'border-emerald-500', bg: 'bg-[#10B981]', text: 'text-emerald-400' },
                   ].map((item) => (
                     <button
                       key={item.color}
                       type="button"
                       onClick={() => setSeverityColor(item.color as any)}
-                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
                         severityColor === item.color
-                          ? `${item.border} bg-slate-800 ring-2 ring-red-500/50`
-                          : 'border-slate-800 bg-slate-800/40 hover:bg-slate-800 text-slate-400'
+                          ? `${item.border} bg-slate-800/90 ring-2 ring-rose-500/50 shadow-lg`
+                          : 'border-slate-800 bg-[#050811]/40 hover:bg-slate-800/40 text-slate-400'
                       }`}
                     >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span className={`w-3 h-3 rounded-full ${item.bg}`} />
-                        <span className="text-xs font-bold text-white">{item.color}</span>
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <span className={`w-2.5 h-2.5 rounded-full ${item.bg}`} />
+                        <span className="text-xs font-black text-white">{item.color}</span>
                       </div>
-                      <span className="text-[10px] text-slate-400 block leading-tight">{item.label}</span>
+                      <span className="text-[10px] text-slate-400 block leading-tight font-medium">{item.label}</span>
                     </button>
                   ))}
                 </div>
@@ -314,7 +314,7 @@ export const CitizenApp: React.FC = () => {
 
               {/* Quick Questions (Conscious & Breathing) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                <div className="bg-slate-800/40 border border-slate-700/60 p-3.5 rounded-xl flex items-center justify-between">
+                <div className="bg-[#050811]/50 border border-slate-800/80 p-3.5 rounded-2xl flex items-center justify-between">
                   <div>
                     <span className="text-xs font-bold text-white block">Vítima Consciente?</span>
                     <span className="text-[11px] text-slate-400">Responde a estímulos verbais</span>
@@ -322,15 +322,15 @@ export const CitizenApp: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setPatientConscious(!patientConscious)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                      patientConscious ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
+                      patientConscious ? 'bg-emerald-600 text-white shadow-emerald-900/40' : 'bg-[#E11D48] text-white shadow-rose-900/40'
                     }`}
                   >
                     {patientConscious ? 'SIM' : 'NÃO'}
                   </button>
                 </div>
 
-                <div className="bg-slate-800/40 border border-slate-700/60 p-3.5 rounded-xl flex items-center justify-between">
+                <div className="bg-[#050811]/50 border border-slate-800/80 p-3.5 rounded-2xl flex items-center justify-between">
                   <div>
                     <span className="text-xs font-bold text-white block">Está Respirando?</span>
                     <span className="text-[11px] text-slate-400">Tórax subindo e descendo</span>
@@ -338,8 +338,8 @@ export const CitizenApp: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setPatientBreathing(!patientBreathing)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                      patientBreathing ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-md ${
+                      patientBreathing ? 'bg-emerald-600 text-white shadow-emerald-900/40' : 'bg-[#E11D48] text-white shadow-rose-900/40'
                     }`}
                   >
                     {patientBreathing ? 'SIM' : 'NÃO'}
@@ -358,7 +358,7 @@ export const CitizenApp: React.FC = () => {
                     value={patientName}
                     onChange={(e) => setPatientName(e.target.value)}
                     placeholder="Ex: Nome da pessoa que precisa de socorro"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-500"
+                    className="w-full bg-[#050811] border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-rose-500 transition-colors"
                   />
                 </div>
                 <div>
@@ -370,7 +370,7 @@ export const CitizenApp: React.FC = () => {
                     value={patientAge}
                     onChange={(e) => setPatientAge(e.target.value)}
                     placeholder="Ex: 45"
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-500"
+                    className="w-full bg-[#050811] border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-rose-500 transition-colors"
                   />
                 </div>
               </div>
@@ -384,49 +384,54 @@ export const CitizenApp: React.FC = () => {
                   type="text"
                   value={chiefComplaint}
                   onChange={(e) => setChiefComplaint(e.target.value)}
-                  placeholder="Ex: Parada cardíaca, acidente de moto, falta de ar..."
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-red-500"
+                  placeholder="Ex: Parada cardíaca, acidente de moto, dor no peito..."
+                  className="w-full bg-[#050811] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-rose-500 transition-colors font-medium"
                 />
               </div>
 
-              {/* Big Red SOS Button */}
+              {/* Big Red SOS Button with Pulse & Glow */}
               <button
                 type="button"
                 onClick={handleRequestEmergency}
-                className="w-full py-5 rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-600 text-white font-black text-lg tracking-wider uppercase flex items-center justify-center gap-3 shadow-xl shadow-red-600/40 hover:shadow-red-600/60 hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer"
+                className="w-full py-5 rounded-2xl bg-gradient-to-r from-[#E11D48] via-rose-600 to-[#BE123C] hover:from-rose-500 hover:to-red-600 text-white font-black text-lg tracking-wider uppercase flex items-center justify-center gap-3 shadow-2xl shadow-rose-900/60 glow-crimson-btn hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer"
               >
-                <Siren className="w-6 h-6 animate-spin" />
+                <Siren className="w-6 h-6 animate-spin text-white" />
                 <span>CHAMAR AMBULÂNCIA SAMU 190</span>
               </button>
             </div>
 
             {/* Right: Map Preview & Emergency Advice */}
             <div className="lg:col-span-6 space-y-6">
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl">
-                <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                  <Compass className="w-4 h-4 text-red-500" />
-                  <span>Sua Localização no Radar SAMU</span>
-                </h3>
-                <div className="h-[280px] rounded-2xl overflow-hidden border border-slate-800">
+              <div className="bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-5 shadow-xl">
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <h3 className="text-xs font-bold text-white flex items-center gap-2 uppercase tracking-wider">
+                    <Compass className="w-4 h-4 text-[#E11D48]" />
+                    <span>Radar Georreferenciado SAMU</span>
+                  </h3>
+                  <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                    Sinal Forte
+                  </span>
+                </div>
+                <div className="h-[300px] rounded-2xl overflow-hidden border border-slate-800 shadow-inner">
                   <LiveMap center={userPos} zoom={15} citizenPos={userPos} citizenAddress={address} hospitals={hospitals} />
                 </div>
               </div>
 
               {/* First Aid Teaser */}
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex items-center justify-between">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-500">
+              <div className="bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-6 shadow-xl flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-600/20 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
                     <HeartPulse className="w-6 h-6" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-white text-base">Guia de Primeiros Socorros</h4>
-                    <p className="text-xs text-slate-400">Instruções de Massagem Cardíaca e Metrônomo RCP</p>
+                    <h4 className="font-extrabold text-white text-base">Guia de Primeiros Socorros</h4>
+                    <p className="text-xs text-slate-400">Massagem cardíaca e metrônomo sonoro RCP a 110 BPM</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setCprOpen(true)}
-                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white border border-slate-700 transition-colors cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white border border-slate-700 transition-colors cursor-pointer shrink-0"
                 >
                   Abrir Guia
                 </button>
@@ -435,32 +440,38 @@ export const CitizenApp: React.FC = () => {
           </div>
         )}
 
-        {/* VIEW 2: SEARCHING RADAR (Uber-style finding nearest driver) */}
+        {/* VIEW 2: SEARCHING RADAR (Uber-style concentric radar circles) */}
         {activeCall && (activeCall.status === 'searching' || activeCall.status === 'offered') && (
-          <div className="max-w-2xl mx-auto w-full text-center py-10">
-            <div className="relative flex items-center justify-center w-48 h-48 mx-auto mb-8">
-              <div className="absolute inset-0 rounded-full border-4 border-red-500/20 animate-ping" />
-              <div className="absolute inset-4 rounded-full border-2 border-red-500/40 animate-pulse" />
-              <div className="w-24 h-24 rounded-full bg-red-600 shadow-2xl shadow-red-600/60 flex items-center justify-center text-white">
-                <Ambulance className="w-12 h-12 animate-bounce" />
+          <div className="max-w-2xl mx-auto w-full text-center py-12">
+            {/* Concentric Radar Animation */}
+            <div className="relative flex items-center justify-center w-60 h-60 mx-auto mb-8">
+              {/* Outer Radar Wave 2 */}
+              <div className="absolute inset-0 rounded-full border border-rose-500/30 animate-radar-2" />
+              {/* Mid Radar Wave 1 */}
+              <div className="absolute inset-4 rounded-full border-2 border-rose-500/40 animate-radar-1" />
+              {/* Core Pulsing Center */}
+              <div className="w-28 h-28 rounded-full bg-gradient-to-br from-[#E11D48] to-[#9F1239] shadow-2xl shadow-rose-900/80 flex items-center justify-center text-white border-2 border-rose-400/50 glow-crimson-btn">
+                <Ambulance className="w-12 h-12 animate-pulse text-white" />
               </div>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl font-black text-white mb-2">Buscando Viatura Mais Próxima...</h2>
-            <p className="text-slate-400 text-sm max-w-md mx-auto mb-6">
-              Nossa Central de Regulação Médica está contatando as equipes de plantão (USA / USB / Motolância) na sua região.
+            <h2 className="text-2xl sm:text-3xl font-black text-white mb-2 tracking-tight">
+              Buscando Viatura Mais Próxima...
+            </h2>
+            <p className="text-slate-400 text-sm max-w-md mx-auto mb-6 leading-relaxed">
+              Nossa Central de Regulação Médica está contatando as viaturas de prontidão na sua área com menor tempo de resposta.
             </p>
 
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900 border border-slate-800 text-xs text-slate-300 mb-8">
-              <Clock className="w-4 h-4 text-red-500 animate-spin" />
-              <span>Tempo médio de aceite do socorrista: 15 segundos</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#0F172A] border border-slate-800 text-xs text-slate-300 mb-8 font-medium">
+              <Clock className="w-4 h-4 text-[#E11D48] animate-spin" />
+              <span>Tempo estimado de aceite: ~15 segundos</span>
             </div>
 
-            <div className="flex justify-center gap-4">
+            <div className="flex flex-wrap justify-center gap-3">
               <button
                 type="button"
                 onClick={() => setCprOpen(true)}
-                className="px-6 py-3 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 font-bold text-xs flex items-center gap-2 transition-colors cursor-pointer"
+                className="px-6 py-3 rounded-2xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer"
               >
                 <HeartPulse className="w-4 h-4" />
                 <span>Instruções de Primeiros Socorros</span>
@@ -469,7 +480,7 @@ export const CitizenApp: React.FC = () => {
               <button
                 type="button"
                 onClick={handleCancelRequest}
-                className="px-6 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 font-bold text-xs transition-colors cursor-pointer"
+                className="px-6 py-3 rounded-2xl bg-[#0F172A] hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 font-bold text-xs transition-colors cursor-pointer"
               >
                 Cancelar Chamado
               </button>
@@ -484,52 +495,56 @@ export const CitizenApp: React.FC = () => {
               {/* Left Column: Live Ride Card & Controls */}
               <div className="lg:col-span-5 flex flex-col gap-4">
                 {/* Main ETA Card */}
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+                <div className="bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-rose-600/10 rounded-full blur-3xl pointer-events-none" />
+
                   <div className="flex items-center justify-between mb-4">
-                    <span className={`text-[11px] font-extrabold uppercase px-3 py-1 rounded-full border ${statusBadge?.color}`}>
+                    <span className={`text-[11px] font-black uppercase px-3 py-1 rounded-full border ${statusBadge?.color}`}>
                       {statusBadge?.label}
                     </span>
-                    <span className="text-xs font-mono text-slate-400">ID: {activeCall.id.slice(0, 8)}</span>
+                    <span className="text-[11px] font-mono text-slate-400 bg-[#050811] px-2 py-0.5 rounded-lg border border-slate-800">
+                      ID: {activeCall.id.slice(0, 8)}
+                    </span>
                   </div>
 
                   {/* Big ETA */}
                   <div className="flex items-baseline gap-2 mb-4">
-                    <span className="text-4xl sm:text-5xl font-black text-white tracking-tight">
+                    <span className="text-5xl sm:text-6xl font-black text-white tracking-tight">
                       {activeCall.eta_minutes || 4}
                     </span>
-                    <span className="text-lg font-bold text-red-500 uppercase">minutos</span>
-                    <span className="text-xs text-slate-400 ml-auto">
+                    <span className="text-xl font-black text-[#E11D48] uppercase tracking-wide">min</span>
+                    <span className="text-xs text-slate-400 ml-auto font-mono">
                       {activeCall.distance_km ? `${activeCall.distance_km.toFixed(1)} km de distância` : 'Aproximando-se'}
                     </span>
                   </div>
 
                   {/* Ambulance & Driver Details Card */}
-                  <div className="bg-slate-800/60 border border-slate-700/70 rounded-2xl p-4 flex items-center justify-between gap-4 mb-5">
+                  <div className="bg-[#050811]/70 border border-slate-800/90 rounded-2xl p-4 flex items-center justify-between gap-4 mb-5 shadow-inner">
                     <div className="flex items-center gap-3.5">
-                      <div className="w-12 h-12 rounded-2xl bg-red-600 flex items-center justify-center text-white shadow-lg shadow-red-600/30">
-                        <Ambulance className="w-6 h-6" />
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#E11D48] to-[#9F1239] flex items-center justify-center text-white shadow-lg shadow-rose-900/40 border border-rose-500/30 shrink-0">
+                        <Ambulance className="w-6 h-6 text-white" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-white text-base">
+                          <span className="font-black text-white text-base">
                             {assignedAmbulance?.code || activeCall.ambulance_code || 'USA-01'}
                           </span>
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
                             {assignedAmbulance?.type || activeCall.ambulance_type || 'UTI Móvel'}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-300 font-medium">
+                        <p className="text-xs text-slate-300 font-semibold mt-0.5">
                           {assignedAmbulance?.current_driver_name || activeCall.driver_name || 'Socorrista de Plantão'}
                         </p>
-                        <p className="text-[10px] text-slate-400 font-mono">
+                        <p className="text-[11px] text-slate-400 font-mono">
                           Placa: {assignedAmbulance?.plate || activeCall.ambulance_plate || 'BRA-1901'}
                         </p>
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-ping mr-1.5" />
-                      <span className="text-[11px] font-bold text-emerald-400">Sirene Ligada</span>
+                    <div className="text-right shrink-0">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block animate-ping mr-1.5 shadow-[0_0_8px_#34d399]" />
+                      <span className="text-[11px] font-bold text-emerald-400">Sirene Ativa</span>
                     </div>
                   </div>
 
@@ -538,18 +553,18 @@ export const CitizenApp: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setChatOpen(true)}
-                      className="py-3 px-4 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                      className="py-3 px-4 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
                     >
-                      <MessageSquare className="w-4 h-4" />
+                      <MessageSquare className="w-4 h-4 text-blue-400" />
                       <span>Mensagem Direta</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={handleShareWhatsApp}
-                      className="py-3 px-4 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-400 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                      className="py-3 px-4 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
                     >
-                      <Share2 className="w-4 h-4" />
+                      <Share2 className="w-4 h-4 text-emerald-400" />
                       <span>{copyNotice ? 'Link Copiado!' : 'WhatsApp Rastreio'}</span>
                     </button>
                   </div>
@@ -558,42 +573,42 @@ export const CitizenApp: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setCprOpen(true)}
-                    className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-red-600/30 transition-all cursor-pointer"
+                    className="w-full py-4 px-4 rounded-2xl bg-gradient-to-r from-[#E11D48] to-rose-600 hover:from-rose-500 hover:to-red-600 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-rose-900/50 transition-all cursor-pointer"
                   >
                     <HeartPulse className="w-4 h-4 animate-pulse" />
-                    <span>Abrir Guia de Primeiros Socorros & Ritmo RCP</span>
+                    <span>Guia de Primeiros Socorros & Ritmo RCP (110 BPM)</span>
                   </button>
                 </div>
 
                 {/* Patient Summary Card */}
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 text-xs text-slate-300">
-                  <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px] block mb-2">Dados da Vítima</span>
-                  <div className="flex items-center justify-between py-1 border-b border-slate-800">
+                <div className="bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-5 text-xs text-slate-300 shadow-xl">
+                  <span className="font-black text-slate-400 uppercase tracking-wider text-[10px] block mb-2.5">Dados da Ocorrência</span>
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-800">
                     <span className="text-slate-400">Paciente:</span>
-                    <strong className="text-white">{activeCall.patient_name || citizenName}</strong>
+                    <strong className="text-white font-bold">{activeCall.patient_name || citizenName}</strong>
                   </div>
-                  <div className="flex items-center justify-between py-1 border-b border-slate-800">
+                  <div className="flex items-center justify-between py-1.5 border-b border-slate-800">
                     <span className="text-slate-400">Queixa:</span>
-                    <strong className="text-white">{activeCall.chief_complaint}</strong>
+                    <strong className="text-white font-bold">{activeCall.chief_complaint}</strong>
                   </div>
-                  <div className="flex items-center justify-between py-1">
-                    <span className="text-slate-400">Prioridade:</span>
-                    <strong className="text-red-400">{activeCall.severity_color}</strong>
+                  <div className="flex items-center justify-between py-1.5">
+                    <span className="text-slate-400">Gravidade:</span>
+                    <span className="text-rose-400 font-black px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">{activeCall.severity_color}</span>
                   </div>
                 </div>
               </div>
 
               {/* Right Column: Full-Height Live Interactive Map */}
-              <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-3xl p-4 shadow-2xl flex flex-col min-h-[480px]">
+              <div className="lg:col-span-7 bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-4 shadow-2xl flex flex-col min-h-[500px]">
                 <div className="flex items-center justify-between mb-3 px-2">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">Telemetria ao Vivo do Trajeto</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#E11D48] animate-ping shadow-[0_0_8px_#E11D48]" />
+                    <span className="text-xs font-black text-white uppercase tracking-wider">Telemetria ao Vivo do Trajeto</span>
                   </div>
-                  <span className="text-[11px] text-slate-400">Atualização a cada 2s</span>
+                  <span className="text-[11px] text-slate-400 font-mono">GPS atualizado a cada 2s</span>
                 </div>
 
-                <div className="flex-1 rounded-2xl overflow-hidden border border-slate-800">
+                <div className="flex-1 rounded-2xl overflow-hidden border border-slate-800 shadow-inner">
                   <LiveMap
                     center={userPos}
                     zoom={15}

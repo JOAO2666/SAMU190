@@ -16,14 +16,13 @@ interface LiveMapProps {
   className?: string;
 }
 
-// Map Auto-pan / Auto-fit Controller
 function MapViewController({ center, routeCoords }: { center: [number, number]; routeCoords?: [number, number][] }) {
   const map = useMap();
 
   useEffect(() => {
     if (routeCoords && routeCoords.length > 1) {
       const bounds = L.latLngBounds(routeCoords.map((c) => L.latLng(c[0], c[1])));
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
     } else if (center && center[0] && center[1]) {
       map.setView(center, map.getZoom() || 14, { animate: true });
     }
@@ -41,51 +40,62 @@ export const LiveMap: React.FC<LiveMapProps> = ({
   hospitals = [],
   routeCoords = [],
   activeAmbulanceId,
-  className = 'w-full h-full min-h-[350px] rounded-xl overflow-hidden shadow-inner',
+  className = 'w-full h-full min-h-[350px] rounded-2xl overflow-hidden shadow-2xl relative',
 }) => {
-  // Custom icons
+  // Ultra-modern Dark Mode Patient Pin
   const citizenIcon = L.divIcon({
     className: 'samu-citizen-marker',
     html: `
       <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-        <span style="position: absolute; width: 34px; height: 34px; border-radius: 50%; background: rgba(239, 68, 68, 0.4); animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
-        <div style="width: 28px; height: 28px; border-radius: 50%; background: #dc2626; border: 2.5px solid #ffffff; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); color: white; font-weight: 900; font-size: 11px;">
+        <span style="position: absolute; width: 44px; height: 44px; border-radius: 50%; background: rgba(225, 29, 72, 0.35); animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+        <span style="position: absolute; width: 28px; height: 28px; border-radius: 50%; background: rgba(225, 29, 72, 0.25);"></span>
+        <div style="position: relative; width: 30px; height: 30px; border-radius: 50%; background: #E11D48; border: 2.5px solid #ffffff; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px rgba(225,29,72,0.8); color: white; font-weight: 900; font-size: 11px;">
           SOS
         </div>
       </div>
     `,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
   });
 
-  const getAmbulanceIcon = (heading: number, _type: string, isActive: boolean) =>
-    L.divIcon({
+  // High-Tech Ambulance Marker with heading rotation and beacon
+  const getAmbulanceIcon = (heading: number, type: string, isActive: boolean, code: string) => {
+    const borderColor = isActive ? '#E11D48' : '#F59E0B';
+    const glowColor = isActive ? 'rgba(225, 29, 72, 0.7)' : 'rgba(245, 158, 11, 0.5)';
+    const vehicleEmoji = type.toLowerCase().includes('moto') ? '🏍️' : '🚑';
+
+    return L.divIcon({
       className: 'samu-ambulance-marker',
       html: `
-        <div style="transform: rotate(${heading || 0}deg); transition: transform 0.4s ease; display: flex; align-items: center; justify-content: center;">
-          <div style="width: 38px; height: 38px; border-radius: 50%; background: #0f172a; border: 3px solid ${isActive ? '#ef4444' : '#f59e0b'}; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 14px rgba(0,0,0,0.4); font-size: 18px; color: white;">
-            🚑
+        <div style="display: flex; flex-direction: column; align-items: center;">
+          <div style="transform: rotate(${heading || 0}deg); transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); position: relative; width: 42px; height: 42px; border-radius: 50%; background: #0A0F1D; border: 2.5px solid ${borderColor}; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 16px ${glowColor};">
+            <span style="font-size: 20px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));">${vehicleEmoji}</span>
+            ${
+              isActive
+                ? `<span style="position: absolute; top: -3px; right: -3px; width: 12px; height: 12px; border-radius: 50%; background: #E11D48; border: 2px solid #ffffff; box-shadow: 0 0 10px #E11D48; animation: pulse 1s infinite;"></span>`
+                : ''
+            }
           </div>
-          ${
-            isActive
-              ? '<span style="position: absolute; top: -3px; right: -3px; width: 12px; height: 12px; border-radius: 50%; background: #dc2626; border: 2px solid white; box-shadow: 0 0 6px #ef4444;"></span>'
-              : ''
-          }
+          <span style="margin-top: 2px; background: rgba(15, 23, 42, 0.9); border: 1px solid ${borderColor}; color: #ffffff; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.6); white-space: nowrap;">
+            ${code}
+          </span>
         </div>
       `,
-      iconSize: [38, 38],
-      iconAnchor: [19, 19],
+      iconSize: [46, 56],
+      iconAnchor: [23, 28],
     });
+  };
 
+  // Hospital Pin with Cyan/Blue Neon Accent
   const hospitalIcon = L.divIcon({
     className: 'samu-hospital-marker',
     html: `
-      <div style="width: 32px; height: 32px; border-radius: 8px; background: #2563eb; border: 2px solid #ffffff; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 16px; color: white;">
-        🏥
+      <div style="position: relative; width: 34px; height: 34px; border-radius: 10px; background: #0A0F1D; border: 2px solid #38BDF8; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 14px rgba(56, 189, 248, 0.5);">
+        <span style="font-size: 17px;">🏥</span>
       </div>
     `,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
   });
 
   return (
@@ -95,32 +105,35 @@ export const LiveMap: React.FC<LiveMapProps> = ({
         zoom={zoom}
         scrollWheelZoom={true}
         className="w-full h-full"
-        style={{ minHeight: '350px' }}
+        style={{ minHeight: '350px', background: '#050811' }}
       >
+        {/* CARTO Dark Matter Tiles - Ultra Sleek Night Mode */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          subdomains="abcd"
+          maxZoom={19}
         />
 
         <MapViewController center={center} routeCoords={routeCoords} />
 
-        {/* Route Polyline */}
+        {/* Neon High-Impact Route Lines */}
         {routeCoords && routeCoords.length > 1 && (
           <>
-            {/* Outline Glow */}
-            <Polyline positions={routeCoords} pathOptions={{ color: '#ef4444', weight: 8, opacity: 0.4 }} />
-            {/* Main Road Line */}
-            <Polyline positions={routeCoords} pathOptions={{ color: '#dc2626', weight: 4, opacity: 0.9, dashArray: '8, 8' }} />
+            {/* Outer Glow */}
+            <Polyline positions={routeCoords} pathOptions={{ color: '#E11D48', weight: 8, opacity: 0.35, lineCap: 'round' }} />
+            {/* Core Bright Neon Line */}
+            <Polyline positions={routeCoords} pathOptions={{ color: '#FB7185', weight: 3.5, opacity: 0.95, dashArray: '6, 8', lineCap: 'round' }} />
           </>
         )}
 
-        {/* Citizen Emergency Location Marker */}
+        {/* Citizen SOS Marker */}
         {citizenPos && citizenPos[0] && citizenPos[1] && (
           <Marker position={citizenPos} icon={citizenIcon}>
-            <Popup>
-              <div className="text-xs">
-                <span className="font-bold text-red-600 uppercase tracking-wide block">Local da Ocorrência</span>
-                <p className="mt-1 text-slate-700">{citizenAddress || 'Coordenadas recebidas via GPS'}</p>
+            <Popup className="samu-popup">
+              <div style={{ background: '#0F172A', color: '#fff', padding: '8px', borderRadius: '10px', fontSize: '12px' }}>
+                <span style={{ color: '#E11D48', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>Local da Vítima</span>
+                <p style={{ marginTop: '4px', color: '#94A3B8' }}>{citizenAddress || 'Coordenadas via GPS'}</p>
               </div>
             </Popup>
           </Marker>
@@ -134,37 +147,33 @@ export const LiveMap: React.FC<LiveMapProps> = ({
             <Marker
               key={amb.id}
               position={[amb.current_lat, amb.current_lng]}
-              icon={getAmbulanceIcon(amb.current_heading || 0, amb.type, isActive)}
+              icon={getAmbulanceIcon(amb.current_heading || 0, amb.type, isActive, amb.code)}
             >
-              <Popup>
-                <div className="text-xs p-1">
-                  <div className="flex items-center gap-1.5 font-bold text-slate-900">
-                    <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-extrabold">{amb.code}</span>
-                    <span>{amb.type} - {amb.plate}</span>
+              <Popup className="samu-popup">
+                <div style={{ background: '#0F172A', color: '#fff', padding: '8px', borderRadius: '10px', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ background: '#E11D48', color: '#fff', fontWeight: 900, padding: '2px 6px', borderRadius: '4px', fontSize: '10px' }}>
+                      {amb.code}
+                    </span>
+                    <strong>{amb.type} • {amb.plate}</strong>
                   </div>
-                  <p className="text-slate-600 mt-1">Status: <strong className="capitalize">{amb.status}</strong></p>
-                  {amb.current_driver_name && (
-                    <p className="text-slate-600">Condutor: <strong>{amb.current_driver_name}</strong></p>
-                  )}
-                  {amb.speed > 0 && (
-                    <p className="text-slate-500 text-[10px]">Velocidade: {Math.round(amb.speed)} km/h</p>
-                  )}
+                  <p style={{ marginTop: '4px', color: '#94A3B8' }}>Status: <strong style={{ color: isActive ? '#E11D48' : '#10B981' }}>{amb.status.toUpperCase()}</strong></p>
+                  {amb.current_driver_name && <p style={{ color: '#CBD5E1' }}>Condutor: {amb.current_driver_name}</p>}
                 </div>
               </Popup>
             </Marker>
           );
         })}
 
-        {/* Hospitals / UPAs */}
+        {/* Hospitals */}
         {hospitals.map((hosp) => (
           <Marker key={hosp.id} position={[hosp.lat, hosp.lng]} icon={hospitalIcon}>
-            <Popup>
-              <div className="text-xs p-1">
-                <span className="font-bold text-blue-700 block">{hosp.name}</span>
-                <p className="text-slate-600 text-[11px] mt-0.5">{hosp.address} - {hosp.city}</p>
-                <div className="mt-1.5 flex items-center justify-between text-[10px]">
-                  <span className="text-slate-500">Plantão: {hosp.hours}</span>
-                  <span className="font-bold text-emerald-600 bg-emerald-50 px-1 rounded">5 Vagas Emergência</span>
+            <Popup className="samu-popup">
+              <div style={{ background: '#0F172A', color: '#fff', padding: '8px', borderRadius: '10px', fontSize: '12px' }}>
+                <strong style={{ color: '#38BDF8', display: 'block' }}>{hosp.name}</strong>
+                <p style={{ color: '#94A3B8', fontSize: '11px', marginTop: '2px' }}>{hosp.address}</p>
+                <div style={{ marginTop: '6px', color: '#10B981', fontWeight: 700, fontSize: '10px' }}>
+                  5 Vagas de Trauma/Emergência
                 </div>
               </div>
             </Popup>
