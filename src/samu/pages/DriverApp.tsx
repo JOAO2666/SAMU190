@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   Ambulance,
-  Power,
   Navigation,
   Clock,
   MessageSquare,
-  CheckCircle2,
   Activity,
   Volume2,
+  FileText,
+  X,
 } from 'lucide-react';
 import { SamuNavbar } from '../components/SamuNavbar';
 import { LiveMap } from '../components/LiveMap';
@@ -39,7 +39,8 @@ export const DriverApp: React.FC = () => {
   const [hospitals, setHospitals] = useState<HospitalUnit[]>([]);
   const [selectedHospitalId, setSelectedHospitalId] = useState<string>('');
 
-  // BAPH Vital Signs Form
+  // BAPH Vital Signs Form Modal
+  const [baphOpen, setBaphOpen] = useState<boolean>(false);
   const [glasgow, setGlasgow] = useState<number>(15);
   const [sysBp, setSysBp] = useState<string>('120');
   const [diaBp, setDiaBp] = useState<string>('80');
@@ -153,29 +154,26 @@ export const DriverApp: React.FC = () => {
     if (!isOnline || !selectedAmbulanceId) return;
 
     const interval = setInterval(() => {
-      // Simulate subtle forward motion when on active call
       let newLat = driverPos[0];
       let newLng = driverPos[1];
       let currentSpeed = 0;
 
       if (activeCall && ['dispatched', 'en_route_pickup'].includes(activeCall.status)) {
-        // Move towards patient
         const dLat = (activeCall.pickup_lat - newLat) * 0.08;
         const dLng = (activeCall.pickup_lng - newLng) * 0.08;
         newLat += dLat;
         newLng += dLng;
-        currentSpeed = 55; // km/h
+        currentSpeed = 58;
         setDriverPos([newLat, newLng]);
         setSpeed(currentSpeed);
       } else if (activeCall && activeCall.status === 'transporting' && selectedHospitalId) {
-        // Move towards hospital
         const targetHosp = hospitals.find((h) => h.id === selectedHospitalId);
         if (targetHosp) {
           const dLat = (targetHosp.lat - newLat) * 0.08;
           const dLng = (targetHosp.lng - newLng) * 0.08;
           newLat += dLat;
           newLng += dLng;
-          currentSpeed = 60; // km/h
+          currentSpeed = 64;
           setDriverPos([newLat, newLng]);
           setSpeed(currentSpeed);
         }
@@ -223,7 +221,6 @@ export const DriverApp: React.FC = () => {
       ambulanceId: selectedAmbulanceId,
     });
 
-    // Optimistic UI update
     setActiveCall({
       id: dispatchOffer.callId,
       citizen_id: '',
@@ -264,7 +261,6 @@ export const DriverApp: React.FC = () => {
   const handleAdvanceState = (nextStatus: any) => {
     if (!activeCall) return;
     const socket = getSamuSocket();
-
     const targetHosp = hospitals.find((h) => h.id === selectedHospitalId);
 
     socket.emit('driver:advance_status', {
@@ -297,6 +293,7 @@ export const DriverApp: React.FC = () => {
       observations: 'Paciente estabilizado a caminho da emergência hospitalar.',
     });
     setBaphSaved(true);
+    setBaphOpen(false);
     playAcceptSound();
   };
 
@@ -312,411 +309,363 @@ export const DriverApp: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#050811] text-slate-100 flex flex-col font-sans pb-12 selection:bg-orange-500 selection:text-white">
+    <div className="relative w-full h-screen flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden font-sans">
       <SamuNavbar currentApp="driver" />
 
-      {/* FULLSCREEN DISPATCH OFFER MODAL (HIGH PRIORITY SIREN & 20s TIMER) */}
+      {/* FULLSCREEN DISPATCH OFFER MODAL (HIGH PRIORITY ALARM WITH 20s TIMER) */}
       {dispatchOffer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#050811]/90 backdrop-blur-xl animate-fadeIn">
-          <div className="bg-[#0F172A] border-2 border-rose-500 rounded-3xl w-full max-w-lg shadow-[0_0_50px_rgba(225,29,72,0.4)] p-6 sm:p-8 text-white text-center relative overflow-hidden animate-pulse">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-3xl w-full max-w-md shadow-2xl p-6 text-white text-center relative overflow-hidden">
             {/* Top Bar with Timer */}
             <div className="flex items-center justify-between mb-4">
-              <span className="text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-[#E11D48] text-white shadow-md shadow-rose-900/50">
-                NOVA OCORRÊNCIA DISPARADA
+              <span className="text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-red-600 text-white">
+                Nova Ocorrência
               </span>
-              <div className="flex items-center gap-1.5 text-rose-400 font-mono font-black text-sm bg-rose-950/50 px-2.5 py-1 rounded-full border border-rose-500/30">
-                <Clock className="w-4 h-4 animate-spin text-rose-400" />
+              <div className="flex items-center gap-1.5 text-red-400 font-mono font-bold text-sm bg-red-950/40 px-2.5 py-1 rounded-full border border-red-500/30">
+                <Clock className="w-4 h-4 animate-spin" />
                 <span>{countdown}s</span>
               </div>
             </div>
 
-            {/* Severity Manchester */}
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#E11D48] to-[#9F1239] mx-auto flex items-center justify-center text-white shadow-xl shadow-rose-900/60 mb-3 border border-rose-400/40">
-              <Ambulance className="w-10 h-10 animate-bounce" />
+            <div className="w-14 h-14 rounded-2xl bg-red-600/20 text-red-500 border border-red-500/30 mx-auto flex items-center justify-center mb-3">
+              <Ambulance className="w-8 h-8" />
             </div>
 
-            <h2 className="text-2xl font-black text-white tracking-tight">{dispatchOffer.chiefComplaint}</h2>
-            <p className="text-rose-400 font-black text-xs uppercase tracking-wider mt-1">Prioridade: {dispatchOffer.severityColor}</p>
+            <h2 className="text-xl font-bold text-white tracking-tight">{dispatchOffer.chiefComplaint}</h2>
+            <p className="text-red-400 font-bold text-xs uppercase tracking-wider mt-1">
+              Prioridade: {dispatchOffer.severityColor}
+            </p>
 
             {/* Info Grid */}
-            <div className="bg-[#050811]/70 border border-slate-800 rounded-2xl p-4 my-5 text-left text-xs space-y-2.5 shadow-inner">
+            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 my-4 text-left text-xs space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Vítima:</span>
-                <strong className="text-white font-bold">{dispatchOffer.patientName} ({dispatchOffer.patientAge || 'Adulto'})</strong>
+                <span className="text-zinc-400">Vítima:</span>
+                <strong className="text-white">{dispatchOffer.patientName} ({dispatchOffer.patientAge || 'Adulto'})</strong>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Estado Vital:</span>
-                <strong className="text-emerald-400 font-bold">
+                <span className="text-zinc-400">Estado Clínico:</span>
+                <strong className="text-emerald-400">
                   {dispatchOffer.patientConscious ? 'Consciente' : 'Inconsciente'} •{' '}
                   {dispatchOffer.patientBreathing ? 'Respirando' : 'Parada Resp.'}
                 </strong>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Distância / Chegada:</span>
-                <strong className="text-amber-400 font-mono font-bold">{dispatchOffer.distanceKm.toFixed(1)} km (~{dispatchOffer.etaMinutes} min)</strong>
+                <span className="text-zinc-400">Distância / Chegada:</span>
+                <strong className="text-amber-400 font-mono">{dispatchOffer.distanceKm.toFixed(1)} km (~{dispatchOffer.etaMinutes} min)</strong>
               </div>
-              <div className="pt-2 border-t border-slate-800">
-                <span className="text-slate-400 block mb-0.5 text-[10px] uppercase font-bold">Endereço da Cena:</span>
-                <p className="text-white font-semibold leading-snug">{dispatchOffer.pickupAddress}</p>
+              <div className="pt-2 border-t border-zinc-800">
+                <span className="text-zinc-400 block mb-0.5 text-[10px] uppercase font-bold">Endereço da Cena:</span>
+                <p className="text-white font-medium truncate">{dispatchOffer.pickupAddress}</p>
               </div>
             </div>
 
-            {/* Giant Accept / Reject Buttons */}
+            {/* Large Glove-Friendly Action Buttons */}
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={handleRejectOffer}
-                className="py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                className="py-3.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
               >
-                RECUSAR
+                Recusar
               </button>
 
               <button
                 type="button"
                 onClick={handleAcceptOffer}
-                className="py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm tracking-wider uppercase shadow-xl shadow-emerald-900/50 hover:scale-[1.02] transition-all cursor-pointer"
+                className="py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs tracking-wider uppercase shadow-lg transition-transform active:scale-95 cursor-pointer"
               >
-                ACEITAR OCORRÊNCIA
+                Aceitar Chamado
               </button>
             </div>
           </div>
         </div>
       )}
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 w-full flex-1 flex flex-col">
-        {/* TOP STATUS BAR: Shift switch & Vehicle selector */}
-        <div className="bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-5 mb-6 shadow-2xl flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-md border ${
-                isOnline ? 'bg-emerald-600 border-emerald-400/40 shadow-emerald-900/40' : 'bg-slate-800 border-slate-700'
-              }`}
-            >
-              <Ambulance className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-black text-white">{selectedAmbulance?.code || 'USA-01'}</h1>
-                <span
-                  className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase ${
-                    isOnline ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  {isOnline ? 'Em Plantão (Online)' : 'Fora de Serviço'}
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 mt-0.5">Condutor: {driverName} • Placa: {selectedAmbulance?.plate || 'BRA-1901'}</p>
-            </div>
-          </div>
+      {/* FULLSCREEN NAVIGATION MAP */}
+      <div className="relative flex-1 w-full h-full">
+        <LiveMap
+          center={driverPos}
+          zoom={15}
+          citizenPos={activeCall ? [activeCall.pickup_lat, activeCall.pickup_lng] : undefined}
+          citizenAddress={activeCall?.pickup_address}
+          ambulances={selectedAmbulance ? [{ ...selectedAmbulance, current_lat: driverPos[0], current_lng: driverPos[1] }] : []}
+          hospitals={hospitals}
+          routeCoords={routePoints}
+          activeAmbulanceId={selectedAmbulanceId}
+          className="w-full h-full"
+        />
 
-          <div className="flex items-center gap-3">
-            {/* Vehicle Dropdown */}
-            <select
-              value={selectedAmbulanceId}
-              onChange={(e) => setSelectedAmbulanceId(e.target.value)}
-              disabled={!!activeCall}
-              className="bg-[#050811] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500 transition-colors font-medium"
-            >
-              {ambulances.map((amb) => (
-                <option key={amb.id} value={amb.id}>
-                  {amb.code} ({amb.type}) - {amb.plate}
-                </option>
-              ))}
-            </select>
-
-            {/* Toggle Shift Button */}
-            <button
-              type="button"
-              onClick={handleToggleShift}
-              disabled={!!activeCall}
-              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                isOnline
-                  ? 'bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30'
-                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30'
-              }`}
-            >
-              <Power className="w-4 h-4" />
-              <span>{isOnline ? 'Finalizar Plantão' : 'Iniciar Plantão'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* ACTIVE CALL HUD (Turn-by-turn navigation & status workflow) */}
-        {activeCall ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-1">
-            {/* Left Column: Mission Controls & BAPH */}
-            <div className="lg:col-span-5 flex flex-col gap-4">
-              <div className="bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                    Ocorrência em Andamento
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-400 bg-[#050811] px-2 py-0.5 rounded-lg border border-slate-800">
-                    ID: {activeCall.id.slice(0, 8)}
-                  </span>
+        {/* FLOATING TOP NAVIGATION HUD (Turn-by-turn banner) */}
+        {activeCall && (
+          <div className="absolute top-4 left-4 right-4 sm:left-6 sm:w-[420px] z-[999] pointer-events-auto">
+            <div className="bg-zinc-900/95 backdrop-blur-md border border-zinc-800 rounded-2xl p-4 shadow-xl flex items-center justify-between gap-3 text-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shrink-0 shadow-md">
+                  <Navigation className="w-5 h-5" />
                 </div>
-
-                <h3 className="text-xl font-black text-white mb-1 tracking-tight">{activeCall.chief_complaint}</h3>
-                <p className="text-xs text-slate-400 mb-4 font-medium">
-                  Solicitante: <strong className="text-white">{activeCall.patient_name || activeCall.citizen_name}</strong>
-                </p>
-
-                {/* Status Stepper Progress */}
-                <div className="bg-[#050811]/70 border border-slate-800 rounded-2xl p-4 mb-5 shadow-inner">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-2">
-                    Etapa Atual da Missão:
-                  </span>
-                  <div className="text-sm font-black text-amber-400 flex items-center gap-2">
-                    <Navigation className="w-4 h-4 animate-spin text-amber-400" />
-                    <span>
-                      {activeCall.status === 'en_route_pickup' && '1. Deslocando até o local da vítima'}
-                      {activeCall.status === 'arrived_scene' && '2. No local - Atendimento e estabilização'}
-                      {activeCall.status === 'transporting' && '3. Em transporte para o hospital'}
-                      {activeCall.status === 'arrived_hospital' && '4. No hospital - Transição da equipe'}
-                    </span>
-                  </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Destino</span>
+                  <p className="text-xs font-bold text-white truncate">
+                    {activeCall.status === 'transporting'
+                      ? hospitals.find((h) => h.id === selectedHospitalId)?.name || 'Hospital de Referência'
+                      : activeCall.pickup_address}
+                  </p>
                 </div>
-
-                {/* Primary Action Button (State Transitions) */}
-                <div className="space-y-3 mb-5">
-                  {activeCall.status === 'en_route_pickup' && (
-                    <button
-                      type="button"
-                      onClick={() => handleAdvanceState('arrived_scene')}
-                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm uppercase tracking-wider shadow-xl shadow-emerald-900/50 transition-all cursor-pointer"
-                    >
-                      CHEGUEI AO LOCAL DA OCORRÊNCIA
-                    </button>
-                  )}
-
-                  {activeCall.status === 'arrived_scene' && (
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-[11px] font-black text-slate-300 uppercase tracking-wider mb-1.5">
-                          Hospital de Destino:
-                        </label>
-                        <select
-                          value={selectedHospitalId}
-                          onChange={(e) => setSelectedHospitalId(e.target.value)}
-                          className="w-full bg-[#050811] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-rose-500 font-medium"
-                        >
-                          {hospitals.map((h) => (
-                            <option key={h.id} value={h.id}>
-                              {h.name} ({h.city} - {h.distance_km}km)
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleAdvanceState('transporting')}
-                        className="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-sm uppercase tracking-wider shadow-xl shadow-blue-900/50 transition-all cursor-pointer"
-                      >
-                        INICIAR TRANSPORTE AO HOSPITAL
-                      </button>
-                    </div>
-                  )}
-
-                  {activeCall.status === 'transporting' && (
-                    <button
-                      type="button"
-                      onClick={() => handleAdvanceState('arrived_hospital')}
-                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white font-black text-sm uppercase tracking-wider shadow-xl shadow-purple-900/50 transition-all cursor-pointer"
-                    >
-                      CHEGADA AO HOSPITAL
-                    </button>
-                  )}
-
-                  {activeCall.status === 'arrived_hospital' && (
-                    <button
-                      type="button"
-                      onClick={() => handleAdvanceState('completed')}
-                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm uppercase tracking-wider shadow-xl shadow-emerald-900/50 transition-all cursor-pointer"
-                    >
-                      FINALIZAR OCORRÊNCIA & LIBERAR VIATURA
-                    </button>
-                  )}
-                </div>
-
-                {/* Quick Chat with Requester */}
-                <button
-                  type="button"
-                  onClick={() => setChatOpen(true)}
-                  className="w-full py-3 rounded-2xl bg-[#050811] hover:bg-slate-800 border border-slate-800 text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
-                >
-                  <MessageSquare className="w-4 h-4 text-blue-400" />
-                  <span>Chat Direto com o Solicitante</span>
-                </button>
               </div>
 
-              {/* Digital BAPH Card (Vital Signs in Transit) */}
-              <div className="bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-5 shadow-xl text-xs">
-                <div className="flex items-center justify-between mb-3.5">
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-[#E11D48]" />
-                    <span className="font-black text-white uppercase tracking-wider text-[11px]">BAPH Digital - Sinais Vitais</span>
-                  </div>
-                  {baphSaved && (
-                    <span className="text-[10px] text-emerald-400 font-black flex items-center gap-1 bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Sincronizado
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 block mb-1">Escala Glasgow (3-15):</label>
-                    <input
-                      type="number"
-                      min={3}
-                      max={15}
-                      value={glasgow}
-                      onChange={(e) => setGlasgow(Number(e.target.value))}
-                      className="w-full bg-[#050811] border border-slate-800 rounded-xl px-2.5 py-2 text-white font-mono text-center focus:border-rose-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 block mb-1">Pressão Arterial (PA):</label>
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="text"
-                        value={sysBp}
-                        onChange={(e) => setSysBp(e.target.value)}
-                        placeholder="120"
-                        className="w-12 bg-[#050811] border border-slate-800 rounded-xl px-2 py-2 text-center text-white font-mono focus:border-rose-500"
-                      />
-                      <span className="text-slate-500">/</span>
-                      <input
-                        type="text"
-                        value={diaBp}
-                        onChange={(e) => setDiaBp(e.target.value)}
-                        placeholder="80"
-                        className="w-12 bg-[#050811] border border-slate-800 rounded-xl px-2 py-2 text-center text-white font-mono focus:border-rose-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 block mb-1">Freq. Cardíaca (BPM):</label>
-                    <input
-                      type="number"
-                      value={heartRate}
-                      onChange={(e) => setHeartRate(e.target.value)}
-                      className="w-full bg-[#050811] border border-slate-800 rounded-xl px-2.5 py-2 text-white font-mono text-center focus:border-rose-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 block mb-1">Saturação O2 (%):</label>
-                    <input
-                      type="number"
-                      value={spo2}
-                      onChange={(e) => setSpo2(e.target.value)}
-                      className="w-full bg-[#050811] border border-slate-800 rounded-xl px-2.5 py-2 text-white font-mono text-center focus:border-rose-500"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleSaveBaph}
-                  className="w-full py-3 rounded-2xl bg-[#050811] hover:bg-slate-800 border border-slate-800 text-white font-black text-xs uppercase tracking-wider transition-colors cursor-pointer"
-                >
-                  Salvar e Transmitir à Central
-                </button>
-              </div>
-            </div>
-
-            {/* Right Column: Navigation Map */}
-            <div className="lg:col-span-7 bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-4 shadow-2xl flex flex-col min-h-[500px]">
-              <div className="flex items-center justify-between mb-3 px-2">
-                <div className="flex items-center gap-2">
-                  <Navigation className="w-4 h-4 text-emerald-400 animate-pulse" />
-                  <span className="text-xs font-black text-white uppercase tracking-wider">Navegação Turn-by-Turn</span>
-                </div>
-                <span className="text-xs font-mono font-black text-emerald-400 bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+              {/* Speedometer Badge */}
+              <div className="text-right shrink-0 bg-zinc-950 px-3 py-1.5 rounded-xl border border-zinc-800">
+                <span className="text-xs font-mono font-bold text-emerald-400 block">
                   {speed > 0 ? `${Math.round(speed)} km/h` : 'Parado'}
                 </span>
               </div>
-
-              <div className="flex-1 rounded-2xl overflow-hidden border border-slate-800 shadow-inner">
-                <LiveMap
-                  center={driverPos}
-                  zoom={15}
-                  citizenPos={[activeCall.pickup_lat, activeCall.pickup_lng]}
-                  citizenAddress={activeCall.pickup_address}
-                  ambulances={selectedAmbulance ? [{ ...selectedAmbulance, current_lat: driverPos[0], current_lng: driverPos[1] }] : []}
-                  hospitals={hospitals}
-                  routeCoords={routePoints}
-                  activeAmbulanceId={selectedAmbulanceId}
-                />
-              </div>
             </div>
           </div>
-        ) : (
-          /* IDLE WAITING FOR CALLS VIEW */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-1">
-            <div className="lg:col-span-4 bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
-              <div>
-                <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/30">
-                  Plantão Ativo
-                </span>
-                <h2 className="text-2xl font-black text-white mt-3 tracking-tight">Aguardando Ocorrências</h2>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Seu aplicativo está conectado ao motor de despacho automático. Mantenha o volume ativo para escutar os alertas sonoros.
-                </p>
+        )}
 
-                <div className="bg-[#050811]/70 border border-slate-800 rounded-2xl p-4 mt-6 text-xs space-y-2.5 shadow-inner">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Viatura Alocada:</span>
-                    <strong className="text-white font-bold">{selectedAmbulance?.code} ({selectedAmbulance?.type})</strong>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Placa:</span>
-                    <strong className="text-white font-mono">{selectedAmbulance?.plate}</strong>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Tempo Alvo de Resposta:</span>
-                    <strong className="text-emerald-400 font-bold">&lt; 8 minutos</strong>
-                  </div>
+        {/* FLOATING BOTTOM COCKPIT DOCK */}
+        <div className="absolute bottom-4 left-4 right-4 sm:left-6 sm:w-[460px] z-[999] pointer-events-auto max-h-[85vh] overflow-y-auto">
+          {activeCall ? (
+            /* MISSION IN PROGRESS CARD */
+            <div className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-3xl p-5 shadow-2xl text-zinc-100">
+              <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-3" />
+
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+                <div>
+                  <span className="text-xs font-bold text-red-500 uppercase tracking-wider block">
+                    {activeCall.chief_complaint}
+                  </span>
+                  <span className="text-xs text-zinc-400 font-medium">
+                    Paciente: <strong className="text-white">{activeCall.patient_name || activeCall.citizen_name}</strong>
+                  </span>
                 </div>
+                <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
+                  Chamado #{activeCall.id.slice(0, 6)}
+                </span>
               </div>
 
-              <div className="pt-6">
+              {/* Progressive Mission Action Button */}
+              <div className="my-4">
+                {activeCall.status === 'en_route_pickup' && (
+                  <button
+                    type="button"
+                    onClick={() => handleAdvanceState('arrived_scene')}
+                    className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-bold text-sm tracking-wide uppercase transition-all shadow-lg cursor-pointer"
+                  >
+                    Cheguei ao Local da Vítima
+                  </button>
+                )}
+
+                {activeCall.status === 'arrived_scene' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+                        Hospital de Encaminhamento:
+                      </label>
+                      <select
+                        value={selectedHospitalId}
+                        onChange={(e) => setSelectedHospitalId(e.target.value)}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white"
+                      >
+                        {hospitals.map((h) => (
+                          <option key={h.id} value={h.id}>
+                            {h.name} ({h.city} - {h.distance_km}km)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAdvanceState('transporting')}
+                      className="w-full py-4 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white font-bold text-sm tracking-wide uppercase transition-all shadow-lg cursor-pointer"
+                    >
+                      Iniciar Transporte ao Hospital
+                    </button>
+                  </div>
+                )}
+
+                {activeCall.status === 'transporting' && (
+                  <button
+                    type="button"
+                    onClick={() => handleAdvanceState('arrived_hospital')}
+                    className="w-full py-4 rounded-xl bg-purple-600 hover:bg-purple-500 active:scale-[0.99] text-white font-bold text-sm tracking-wide uppercase transition-all shadow-lg cursor-pointer"
+                  >
+                    Confirmar Chegada ao Hospital
+                  </button>
+                )}
+
+                {activeCall.status === 'arrived_hospital' && (
+                  <button
+                    type="button"
+                    onClick={() => handleAdvanceState('completed')}
+                    className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-bold text-sm tracking-wide uppercase transition-all shadow-lg cursor-pointer"
+                  >
+                    Concluir Ocorrência & Liberar Viatura
+                  </button>
+                )}
+              </div>
+
+              {/* Secondary Actions (BAPH & Chat) */}
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setBaphOpen(true)}
+                  className="py-2.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 hover:text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Activity className="w-4 h-4 text-red-500" />
+                  <span>{baphSaved ? 'BAPH Sincronizado' : 'Prontuário BAPH'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setChatOpen(true)}
+                  className="py-2.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 hover:text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <MessageSquare className="w-4 h-4 text-blue-400" />
+                  <span>Chat Solicitante</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* IDLE SHIFT CARD */
+            <div className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-3xl p-5 shadow-2xl text-zinc-100">
+              <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-3" />
+
+              <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white ${isOnline ? 'bg-emerald-600' : 'bg-zinc-800'}`}>
+                    <Ambulance className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">{selectedAmbulance?.code || 'USA-01'}</h3>
+                    <span className="text-[11px] text-zinc-400">
+                      {isOnline ? 'Pronto para despacho' : 'Fora de serviço'}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleToggleShift}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                    isOnline ? 'bg-zinc-800 text-zinc-300 hover:text-white' : 'bg-emerald-600 text-white'
+                  }`}
+                >
+                  {isOnline ? 'Pausar' : 'Ficar Online'}
+                </button>
+              </div>
+
+              {/* Vehicle & Siren Test */}
+              <div className="pt-3 flex items-center justify-between text-xs">
+                <select
+                  value={selectedAmbulanceId}
+                  onChange={(e) => setSelectedAmbulanceId(e.target.value)}
+                  className="bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-zinc-300 text-xs"
+                >
+                  {ambulances.map((amb) => (
+                    <option key={amb.id} value={amb.id}>
+                      {amb.code} ({amb.type})
+                    </option>
+                  ))}
+                </select>
+
                 <button
                   type="button"
                   onClick={() => {
                     playEmergencySiren();
                     setTimeout(stopEmergencySiren, 2000);
                   }}
-                  className="w-full py-3.5 rounded-2xl bg-[#050811] hover:bg-slate-800 text-slate-300 font-bold text-xs flex items-center justify-center gap-2 border border-slate-800 transition-colors cursor-pointer"
+                  className="text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer"
                 >
-                  <Volume2 className="w-4 h-4 text-amber-400" />
-                  <span>Testar Sirene Sonora (2 seg)</span>
+                  <Volume2 className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Testar Alarme</span>
                 </button>
               </div>
             </div>
+          )}
+        </div>
+      </div>
 
-            <div className="lg:col-span-8 bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800/90 rounded-3xl p-4 shadow-2xl flex flex-col min-h-[440px]">
-              <div className="flex items-center justify-between mb-3 px-2">
-                <span className="text-xs font-black text-slate-300 uppercase tracking-wider">Área de Cobertura e Bases SAMU</span>
-                <span className="text-xs text-slate-500 font-medium">Petrolina / Juazeiro</span>
+      {/* BAPH VITAL SIGNS MODAL */}
+      {baphOpen && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl w-full max-w-sm p-5 shadow-2xl text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-red-500" />
+                <h3 className="font-bold text-sm">BAPH Digital - Sinais Vitais</h3>
               </div>
-              <div className="flex-1 rounded-2xl overflow-hidden border border-slate-800 shadow-inner">
-                <LiveMap
-                  center={driverPos}
-                  zoom={14}
-                  ambulances={ambulances}
-                  hospitals={hospitals}
-                  activeAmbulanceId={selectedAmbulanceId}
-                />
+              <button onClick={() => setBaphOpen(false)} className="text-zinc-400 hover:text-white cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 my-4 text-xs">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-zinc-400 block mb-1">Escala Glasgow (3-15):</label>
+                  <input
+                    type="number"
+                    min={3}
+                    max={15}
+                    value={glasgow}
+                    onChange={(e) => setGlasgow(Number(e.target.value))}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-white font-mono text-center"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-zinc-400 block mb-1">Pressão Arterial (PA):</label>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      value={sysBp}
+                      onChange={(e) => setSysBp(e.target.value)}
+                      className="w-12 bg-zinc-950 border border-zinc-800 rounded-xl px-2 py-1.5 text-center text-white font-mono"
+                    />
+                    <span className="text-zinc-500">/</span>
+                    <input
+                      type="text"
+                      value={diaBp}
+                      onChange={(e) => setDiaBp(e.target.value)}
+                      className="w-12 bg-zinc-950 border border-zinc-800 rounded-xl px-2 py-1.5 text-center text-white font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-zinc-400 block mb-1">Freq. Cardíaca (BPM):</label>
+                  <input
+                    type="number"
+                    value={heartRate}
+                    onChange={(e) => setHeartRate(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-white font-mono text-center"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-zinc-400 block mb-1">Saturação O2 (%):</label>
+                  <input
+                    type="number"
+                    value={spo2}
+                    onChange={(e) => setSpo2(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-white font-mono text-center"
+                  />
+                </div>
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={handleSaveBaph}
+              className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 font-bold text-xs uppercase tracking-wider text-white transition-colors cursor-pointer"
+            >
+              Salvar e Transmitir à Central
+            </button>
           </div>
-        )}
-      </main>
+        </div>
+      )}
 
       {/* Chat Drawer */}
       {activeCall && (
