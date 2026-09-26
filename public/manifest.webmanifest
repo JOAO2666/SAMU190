@@ -1,0 +1,17 @@
+{
+  "name": "SaudeConnect",
+  "short_name": "SaudeConnect",
+  "description": "Portal integrado para pacientes, unidades de saude e administradores.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#0f8b8d",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
