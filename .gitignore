@@ -31,3 +31,4 @@ android/local.properties
 *.sw?
 
 .vercel
+.env*
