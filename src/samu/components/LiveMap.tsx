@@ -67,36 +67,43 @@ export const LiveMap: React.FC<LiveMapProps> = ({
     iconAnchor: [40, 34],
   });
 
-  // Professional Vehicle Puck (Vector SVG with heading arrow & license plate badge)
-  const getAmbulanceIcon = (heading: number, type: string, isActive: boolean, code: string) => {
+  // Puck vetorial com chevron de proa + placa Mercosul realista (spec §3)
+  const getAmbulanceIcon = (heading: number, type: string, isActive: boolean, code: string, plate?: string) => {
     const isMoto = type.toLowerCase().includes('moto');
     const borderColor = isActive ? '#E11D48' : '#2563EB';
+    const plateLabel = plate || 'BRA-1901';
 
     return L.divIcon({
       className: 'samu-vehicle-pin',
       html: `
         <div style="display: flex; flex-direction: column; align-items: center;">
-          <div style="position: relative; width: 40px; height: 40px; border-radius: 50%; background: #FFFFFF; border: 3px solid ${borderColor}; box-shadow: 0 4px 14px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
-            <div style="transform: rotate(${heading || 0}deg); display: flex; align-items: center; justify-content: center; transition: transform 0.4s ease;">
+          <div style="position: relative; width: 44px; height: 44px;">
+            <span style="position: absolute; left: 50%; top: -7px; transform: translateX(-50%) rotate(${heading || 0}deg); transform-origin: 50% 28px; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid ${borderColor}; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)); transition: transform 0.4s ease;"></span>
+            <div style="position: absolute; inset: 0; border-radius: 50%; background: #FFFFFF; border: 3px solid ${borderColor}; box-shadow: 0 4px 14px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
+              <div style="transform: rotate(${heading || 0}deg); display: flex; align-items: center; justify-content: center; transition: transform 0.4s ease;">
+                ${
+                  isMoto
+                    ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${isActive ? '#E11D48' : '#1E293B'}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5V14l-3-3 4-3 2 3h4"/></svg>`
+                    : `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${isActive ? '#E11D48' : '#1E293B'}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1 .4-1 1v7c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 10h4v4H9z"/></svg>`
+                }
+              </div>
               ${
-                isMoto
-                  ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${isActive ? '#E11D48' : '#1E293B'}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5V14l-3-3 4-3 2 3h4"/></svg>`
-                  : `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="${isActive ? '#E11D48' : '#1E293B'}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1 .4-1 1v7c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 10h4v4H9z"/></svg>`
+                isActive
+                  ? `<span style="position: absolute; top: -1px; right: -1px; width: 11px; height: 11px; border-radius: 50%; background: #E11D48; border: 2px solid #ffffff; box-shadow: 0 0 6px #E11D48;"></span>`
+                  : ''
               }
             </div>
-            ${
-              isActive
-                ? `<span style="position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%; background: #E11D48; border: 2px solid #ffffff; box-shadow: 0 0 6px #E11D48;"></span>`
-                : ''
-            }
           </div>
-          <span style="margin-top: 3px; background: #18181B; border: 1px solid rgba(255,255,255,0.15); color: #FFFFFF; font-size: 10px; font-weight: 800; padding: 1.5px 6px; border-radius: 5px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); white-space: nowrap;">
+          <span style="margin-top: 4px; background: #18181B; border: 1px solid rgba(255,255,255,0.15); color: #FFFFFF; font-size: 10px; font-weight: 800; padding: 1.5px 6px; border-radius: 5px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); white-space: nowrap;">
             ${code}
+          </span>
+          <span style="margin-top: 2px; background: #F8FAFC; border: 1px solid #CBD5E1; border-top: 3px solid #1D4ED8; color: #0F172A; font-size: 8.5px; font-weight: 900; font-family: monospace; letter-spacing: 0.4px; padding: 1px 5px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,0.35); white-space: nowrap;">
+            ${plateLabel}
           </span>
         </div>
       `,
-      iconSize: [48, 62],
-      iconAnchor: [24, 30],
+      iconSize: [52, 84],
+      iconAnchor: [26, 30],
     });
   };
 
@@ -269,7 +276,7 @@ export const LiveMap: React.FC<LiveMapProps> = ({
             <Marker
               key={amb.id}
               position={[amb.current_lat, amb.current_lng]}
-              icon={getAmbulanceIcon(amb.current_heading || 0, amb.type, isActive, amb.code)}
+              icon={getAmbulanceIcon(amb.current_heading || 0, amb.type, isActive, amb.code, amb.plate)}
             >
               <Popup className="samu-popup">
                 <div style={{ background: '#18181B', color: '#FFFFFF', padding: '10px', borderRadius: '12px', fontSize: '12px', minWidth: '180px' }}>
@@ -302,8 +309,11 @@ export const LiveMap: React.FC<LiveMapProps> = ({
                 <strong style={{ color: '#38BDF8', display: 'block', fontSize: '13px' }}>{hosp.name}</strong>
                 <p style={{ color: '#A1A1AA', fontSize: '11px', marginTop: '3px' }}>{hosp.address}</p>
                 <div style={{ marginTop: '6px', color: '#10B981', fontWeight: 700, fontSize: '11px' }}>
-                  Pronto-Socorro / Vagas Abertas
+                  {(hosp.availableBeds ?? hosp.available_beds ?? hosp.emergencyBeds ?? 5)} / {(hosp.totalBeds ?? hosp.total_beds ?? 20)} leitos livres
                 </div>
+                {(hosp.specialties && hosp.specialties.length > 0) && (
+                  <p style={{ color: '#A1A1AA', fontSize: '10px', marginTop: '3px' }}>{hosp.specialties.slice(0, 3).join(' · ')}</p>
+                )}
               </div>
             </Popup>
           </Marker>

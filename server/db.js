@@ -320,6 +320,9 @@ export async function initDb() {
   await ensureColumn('units', 'hours', "TEXT NOT NULL DEFAULT 'Seg-Sex: 7h às 17h'");
   await ensureColumn('units', 'lat', 'REAL NOT NULL DEFAULT -23.5505');
   await ensureColumn('units', 'lng', 'REAL NOT NULL DEFAULT -46.6333');
+  await ensureColumn('units', 'total_beds', 'INTEGER NOT NULL DEFAULT 20');
+  await ensureColumn('units', 'available_beds', 'INTEGER NOT NULL DEFAULT 5');
+  await ensureColumn('units', 'specialties', "TEXT NOT NULL DEFAULT '[]'");
   await ensureColumn('users', 'last_seen', 'TEXT');
   await ensureColumn('users', 'cpf', 'TEXT');
   await ensureColumn('users', 'phone', 'TEXT');
@@ -327,6 +330,23 @@ export async function initDb() {
   await ensureColumn('triage_cases', 'creator_name', 'TEXT');
   await ensureColumn('triage_cases', 'unit_id', 'TEXT');
   await ensureColumn('records', 'creator_name', 'TEXT');
+  // SAMU 190 — compatibilidade com esquema da especificação (§5)
+  await ensureColumn('ambulances', 'phone', 'TEXT');
+  await ensureColumn('ambulances', 'driver_name', 'TEXT');
+  await ensureColumn('emergency_calls', 'chest_pain', 'INTEGER NOT NULL DEFAULT 0');
+  await ensureColumn('emergency_calls', 'unconscious', 'INTEGER');
+  await ensureColumn('emergency_calls', 'not_breathing', 'INTEGER');
+  await ensureColumn('emergency_calls', 'destination_hospital_id', 'TEXT');
+  await ensureColumn('emergency_calls', 'phone', 'TEXT');
+  await ensureColumn('telemetry_logs', 'call_id', 'TEXT');
+  await ensureColumn('telemetry_logs', 'timestamp', 'TEXT');
+  await ensureColumn('emergency_messages', 'role', 'TEXT');
+  await ensureColumn('emergency_messages', 'text', 'TEXT');
+  await ensureColumn('emergency_messages', 'timestamp', 'TEXT');
+  await ensureColumn('baph_records', 'o2_sat', 'INTEGER');
+  await ensureColumn('baph_records', 'notes', 'TEXT');
+  await ensureColumn('baph_records', 'filled_by', 'TEXT');
+  await ensureColumn('baph_records', 'filled_at', 'TEXT');
 
   await seedDb();
 }
@@ -596,8 +616,8 @@ async function upsertUser(user) {
 
 async function upsertAmbulance(amb) {
   await dbRun(`
-    INSERT INTO ambulances (id, code, plate, type, status, current_driver_id, current_driver_name, current_lat, current_lng, current_heading, speed, last_ping_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO ambulances (id, code, plate, type, status, current_driver_id, current_driver_name, current_lat, current_lng, current_heading, speed, last_ping_at, updated_at, phone, driver_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(code) DO UPDATE SET
       plate = excluded.plate,
       type = excluded.type,
@@ -609,7 +629,9 @@ async function upsertAmbulance(amb) {
       current_heading = excluded.current_heading,
       speed = excluded.speed,
       last_ping_at = excluded.last_ping_at,
-      updated_at = excluded.updated_at
+      updated_at = excluded.updated_at,
+      phone = COALESCE(excluded.phone, phone),
+      driver_name = COALESCE(excluded.driver_name, excluded.current_driver_name, driver_name)
   `, [
     amb.id,
     amb.code,
@@ -624,13 +646,15 @@ async function upsertAmbulance(amb) {
     amb.speed,
     amb.last_ping_at,
     amb.updated_at,
+    amb.phone || null,
+    amb.driver_name || amb.current_driver_name || null,
   ]);
 }
 
 async function upsertUnit(unit) {
   await dbRun(`
-    INSERT INTO units (id, name, type, city, district, address, phone, status, services, distance_km, hours, lat, lng, created_at)
-    VALUES (:id, :name, :type, :city, :district, :address, :phone, :status, :services, :distance_km, :hours, :lat, :lng, :created_at)
+    INSERT INTO units (id, name, type, city, district, address, phone, status, services, distance_km, hours, lat, lng, total_beds, available_beds, specialties, created_at)
+    VALUES (:id, :name, :type, :city, :district, :address, :phone, :status, :services, :distance_km, :hours, :lat, :lng, :total_beds, :available_beds, :specialties, :created_at)
     ON CONFLICT(id) DO UPDATE SET
       name = excluded.name,
       type = excluded.type,
@@ -643,10 +667,16 @@ async function upsertUnit(unit) {
       distance_km = excluded.distance_km,
       hours = excluded.hours,
       lat = excluded.lat,
-      lng = excluded.lng
+      lng = excluded.lng,
+      total_beds = excluded.total_beds,
+      available_beds = excluded.available_beds,
+      specialties = excluded.specialties
   `, {
     ...unit,
     services: JSON.stringify(unit.services),
+    specialties: JSON.stringify(unit.specialties || unit.services || []),
+    total_beds: unit.total_beds ?? 20,
+    available_beds: unit.available_beds ?? 5,
     created_at: now(),
   });
 }

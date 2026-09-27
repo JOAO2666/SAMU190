@@ -26,6 +26,8 @@ export interface Ambulance {
   status: AmbulanceStatus;
   current_driver_id: string | null;
   current_driver_name: string | null;
+  driver_name?: string | null;
+  phone?: string | null;
   current_lat: number;
   current_lng: number;
   current_heading: number;
@@ -39,6 +41,7 @@ export interface EmergencyCall {
   citizen_id: string;
   citizen_name: string;
   citizen_phone?: string;
+  phone?: string;
   ambulance_id?: string | null;
   ambulance_code?: string;
   ambulance_plate?: string;
@@ -50,6 +53,7 @@ export interface EmergencyCall {
   driver_name?: string | null;
   target_hospital_id?: string | null;
   target_hospital_name?: string | null;
+  destination_hospital_id?: string | null;
   status: EmergencyCallStatus;
   severity_color: ManchesterColor;
   chief_complaint: string;
@@ -58,6 +62,9 @@ export interface EmergencyCall {
   patient_age?: number;
   patient_conscious: number;
   patient_breathing: number;
+  unconscious?: number;
+  not_breathing?: number;
+  chest_pain?: number;
   pickup_lat: number;
   pickup_lng: number;
   pickup_address: string;
@@ -83,8 +90,11 @@ export interface EmergencyMessage {
   sender_id: string;
   sender_name: string;
   sender_role: string;
+  role?: string;
   message: string;
+  text?: string;
   created_at: string;
+  timestamp?: string;
 }
 
 export interface BaphRecord {
@@ -95,9 +105,13 @@ export interface BaphRecord {
   diastolic_bp?: number;
   heart_rate?: number;
   oxygen_saturation?: number;
+  o2_sat?: number;
   respiratory_rate?: number;
   procedures_performed?: string[] | string;
   observations?: string;
+  notes?: string;
+  filled_by?: string;
+  filled_at?: string;
   created_at?: string;
 }
 
@@ -114,6 +128,11 @@ export interface HospitalUnit {
   distance_km: number;
   hours: string;
   services: string[];
+  specialties?: string[];
+  total_beds?: number;
+  available_beds?: number;
+  totalBeds?: number;
+  availableBeds?: number;
   emergencyBeds?: number;
 }
 

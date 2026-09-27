@@ -5,8 +5,8 @@ import {
   HeartPulse,
   MessageSquare,
   Share2,
-  Clock,
   Ambulance,
+  Radar,
   X,
 } from 'lucide-react';
 import { SamuNavbar } from '../components/SamuNavbar';
@@ -15,6 +15,7 @@ import { CPRMetronomeModal } from '../components/CPRMetronomeModal';
 import { ChatDrawer } from '../components/ChatDrawer';
 import { getSamuSocket } from '../socket';
 import { playAcceptSound, playBeep } from '../audio';
+import { fetchRoadRoute, formatDistance, type LatLng } from '../routing';
 import { useAuth } from '../../auth';
 import type { EmergencyCall, Ambulance as AmbulanceType, HospitalUnit } from '../types';
 
@@ -28,18 +29,23 @@ export const CitizenApp: React.FC = () => {
   const [address, setAddress] = useState('Av. Coronel Honorato Viana, Petrolina - PE');
   const [isLocating, setIsLocating] = useState(false);
 
-  // Triage inputs
+  // Triage inputs (Manchester expressa + toggles clínicos de resposta rápida)
   const [chiefComplaint, setChiefComplaint] = useState('Dor torácica súbita com irradiação para o braço');
   const [severityColor, setSeverityColor] = useState<'Vermelho' | 'Laranja' | 'Amarelo' | 'Verde'>('Vermelho');
   const [patientName, setPatientName] = useState('');
   const [patientAge, setPatientAge] = useState('');
   const [patientConscious, setPatientConscious] = useState(true);
   const [patientBreathing, setPatientBreathing] = useState(true);
+  const [chestPain, setChestPain] = useState(true);
 
   // App States: 'IDLE' | 'SEARCHING' | 'IN_PROGRESS' | 'COMPLETED'
   const [activeCall, setActiveCall] = useState<EmergencyCall | null>(null);
   const [assignedAmbulance, setAssignedAmbulance] = useState<AmbulanceType | null>(null);
   const [hospitals, setHospitals] = useState<HospitalUnit[]>([]);
+  const [nearbyAmbulances, setNearbyAmbulances] = useState<AmbulanceType[]>([]);
+  const [roadRoute, setRoadRoute] = useState<LatLng[]>([]);
+  const [liveEtaMin, setLiveEtaMin] = useState<number | null>(null);
+  const [liveDistKm, setLiveDistKm] = useState<number | null>(null);
 
   // Modals
   const [cprOpen, setCprOpen] = useState(false);
@@ -86,6 +92,40 @@ export const CitizenApp: React.FC = () => {
       })
       .catch(() => {});
 
+    // Radar: frota disponível para animação de despacho estilo Uber
+    fetch('/api/samu/ambulances')
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setNearbyAmbulances(data.filter((a: AmbulanceType) => a.status === 'available'));
+        }
+      })
+      .catch(() => {});
+
+    // Deep-link de rastreio para familiares (?call=ID compartilhado via WhatsApp)
+    const sharedCallId = new URLSearchParams(window.location.search).get('call');
+    if (sharedCallId) {
+      fetch(`/api/samu/calls/${encodeURIComponent(sharedCallId)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((call) => {
+          if (call && call.id) {
+            setActiveCall(call);
+            if (call.pickup_lat && call.pickup_lng) setUserPos([call.pickup_lat, call.pickup_lng]);
+            if (call.ambulance_id) {
+              fetch('/api/samu/ambulances')
+                .then((r) => r.json())
+                .then((ambs) => {
+                  const found = (ambs as AmbulanceType[]).find((a) => a.id === call.ambulance_id);
+                  if (found) setAssignedAmbulance(found);
+                })
+                .catch(() => {});
+            }
+          }
+        })
+        .catch(() => {});
+      return;
+    }
+
     // Check if user already has an active call
     fetch('/api/samu/calls/active')
       .then((r) => r.json())
@@ -119,6 +159,7 @@ export const CitizenApp: React.FC = () => {
 
     const onCallCreated = (call: EmergencyCall) => {
       setActiveCall(call);
+      playBeep(880, 150);
     };
 
     const onCallAccepted = ({ call, ambulance }: { call: EmergencyCall; ambulance: AmbulanceType }) => {
@@ -129,7 +170,23 @@ export const CitizenApp: React.FC = () => {
 
     const onStatusChanged = (call: EmergencyCall) => {
       setActiveCall(call);
-      playBeep(880, 200);
+      if (call.status === 'completed' || call.status === 'cancelled') {
+        setTimeout(() => {
+          setActiveCall(null);
+          setAssignedAmbulance(null);
+          setRoadRoute([]);
+        }, 6000);
+      } else {
+        playBeep(880, 200);
+      }
+    };
+
+    const onCallCancelled = (call: EmergencyCall) => {
+      setActiveCall(call.status === 'cancelled' ? call : null);
+      if (call.status === 'cancelled') {
+        setAssignedAmbulance(null);
+        setRoadRoute([]);
+      }
     };
 
     const onTelemetry = (telemetry: any) => {
@@ -150,20 +207,51 @@ export const CitizenApp: React.FC = () => {
     socket.on('call:created', onCallCreated);
     socket.on('call:accepted', onCallAccepted);
     socket.on('call:status_changed', onStatusChanged);
+    socket.on('call:cancelled', onCallCancelled);
     socket.on('ambulance:telemetry', onTelemetry);
 
     return () => {
       socket.off('call:created', onCallCreated);
       socket.off('call:accepted', onCallAccepted);
       socket.off('call:status_changed', onStatusChanged);
+      socket.off('call:cancelled', onCallCancelled);
       socket.off('ambulance:telemetry', onTelemetry);
     };
   }, [citizenId, activeCall?.id]);
 
-  // Request Emergency Button Action
+  // Rota viária real (OSRM) entre viatura e paciente — Live Ride com ETA dinâmico
+  useEffect(() => {
+    if (!activeCall || !assignedAmbulance?.current_lat || !assignedAmbulance?.current_lng) {
+      if (!activeCall) {
+        setRoadRoute([]);
+        setLiveEtaMin(null);
+        setLiveDistKm(null);
+      }
+      return;
+    }
+    let cancelled = false;
+    const from: LatLng = [assignedAmbulance.current_lat, assignedAmbulance.current_lng];
+    const to: LatLng = [activeCall.status === 'transporting' && hospitals.length > 0
+      ? (hospitals.find((h) => h.id === activeCall.target_hospital_id)?.lat ?? userPos[0])
+      : userPos[0],
+      activeCall.status === 'transporting' && hospitals.length > 0
+      ? (hospitals.find((h) => h.id === activeCall.target_hospital_id)?.lng ?? userPos[1])
+      : userPos[1]];
+    void fetchRoadRoute(from, to).then((route) => {
+      if (cancelled) return;
+      setRoadRoute(route.coords);
+      setLiveEtaMin(route.durationMin);
+      setLiveDistKm(route.distanceKm);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [assignedAmbulance?.current_lat, assignedAmbulance?.current_lng, userPos, activeCall?.status, activeCall?.target_hospital_id, hospitals, activeCall]);
+
+  // Request Emergency Button Action (spec: citizen:request_call)
   const handleRequestEmergency = () => {
     const socket = getSamuSocket();
-    socket.emit('citizen:request_emergency', {
+    const payload = {
       citizenId,
       citizenName,
       pickupLat: userPos[0],
@@ -175,10 +263,16 @@ export const CitizenApp: React.FC = () => {
       patientAge: patientAge ? Number(patientAge) : undefined,
       patientConscious,
       patientBreathing,
-    });
+      chestPain,
+      unconscious: !patientConscious,
+      notBreathing: !patientBreathing,
+    };
+    socket.emit('citizen:request_call', payload);
+    // Compat legado
+    socket.emit('citizen:request_emergency', payload);
   };
 
-  // Cancel Request Action
+  // Cancel Request Action (socket + fallback REST)
   const handleCancelRequest = () => {
     if (!activeCall) return;
     const socket = getSamuSocket();
@@ -186,29 +280,45 @@ export const CitizenApp: React.FC = () => {
       callId: activeCall.id,
       reason: 'Cancelado pelo solicitante',
     });
+    fetch(`/api/samu/calls/${encodeURIComponent(activeCall.id)}/cancel`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: 'Cancelado pelo solicitante' }),
+    }).catch(() => {});
     setActiveCall(null);
     setAssignedAmbulance(null);
+    setRoadRoute([]);
   };
 
-  // Share Live Ride WhatsApp
+  // Share Live Ride WhatsApp (texto sóbrio, sem emoji — padrão anti-vibe coding)
   const handleShareWhatsApp = () => {
     const shareUrl = `${window.location.origin}/samu/cidadao?call=${activeCall?.id || ''}`;
     const text = encodeURIComponent(
-      `🚨 *SAMU 190 - Acompanhamento de Resgate em Tempo Real*\nUma ambulância foi solicitada para ${address}.\nAcompanhe a aproximação pelo link: ${shareUrl}`
+      `SAMU 190 - Acompanhamento de resgate em tempo real. Uma ambulancia foi solicitada para ${address}. Acompanhe a aproximacao pelo link: ${shareUrl}`
     );
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
     setCopyNotice(true);
     setTimeout(() => setCopyNotice(false), 3000);
   };
 
-  // Route points if active
-  const routePoints: [number, number][] = [];
-  if (userPos && userPos[0]) {
-    routePoints.push(userPos);
-  }
-  if (assignedAmbulance?.current_lat && assignedAmbulance?.current_lng) {
-    routePoints.unshift([assignedAmbulance.current_lat, assignedAmbulance.current_lng]);
-  }
+  // Route points: prefere rota viária OSRM; fallback para linha reta
+  const routePoints: [number, number][] = roadRoute.length > 1
+    ? roadRoute
+    : (() => {
+        const pts: [number, number][] = [];
+        if (userPos && userPos[0]) pts.push(userPos);
+        if (assignedAmbulance?.current_lat && assignedAmbulance?.current_lng) {
+          pts.unshift([assignedAmbulance.current_lat, assignedAmbulance.current_lng]);
+        }
+        return pts;
+      })();
+
+  const etaDisplay = liveEtaMin ?? activeCall?.eta_minutes ?? 4;
+  const distDisplay = liveDistKm !== null && liveDistKm !== undefined
+    ? formatDistance(liveDistKm)
+    : activeCall?.distance_km
+      ? formatDistance(activeCall.distance_km)
+      : 'Em deslocamento';
 
   const getStatusText = () => {
     if (!activeCall) return '';
@@ -322,10 +432,10 @@ export const CitizenApp: React.FC = () => {
                 </div>
               </div>
 
-              {/* Quick Clinical Questions */}
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="bg-zinc-950/60 border border-zinc-800 p-2.5 rounded-xl flex items-center justify-between">
-                  <span className="text-xs text-zinc-300">Consciente?</span>
+              {/* Toggles clínicos de resposta rápida: inconsciente / não respira / dor no peito */}
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="bg-zinc-950/60 border border-zinc-800 p-2.5 rounded-xl flex flex-col items-center gap-1.5">
+                  <span className="text-[11px] text-zinc-300">Inconsciente?</span>
                   <button
                     type="button"
                     onClick={() => setPatientConscious(!patientConscious)}
@@ -333,12 +443,12 @@ export const CitizenApp: React.FC = () => {
                       patientConscious ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
                     }`}
                   >
-                    {patientConscious ? 'SIM' : 'NÃO'}
+                    {patientConscious ? 'NÃO' : 'SIM'}
                   </button>
                 </div>
 
-                <div className="bg-zinc-950/60 border border-zinc-800 p-2.5 rounded-xl flex items-center justify-between">
-                  <span className="text-xs text-zinc-300">Respirando?</span>
+                <div className="bg-zinc-950/60 border border-zinc-800 p-2.5 rounded-xl flex flex-col items-center gap-1.5">
+                  <span className="text-[11px] text-zinc-300">Não respira?</span>
                   <button
                     type="button"
                     onClick={() => setPatientBreathing(!patientBreathing)}
@@ -346,7 +456,20 @@ export const CitizenApp: React.FC = () => {
                       patientBreathing ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
                     }`}
                   >
-                    {patientBreathing ? 'SIM' : 'NÃO'}
+                    {patientBreathing ? 'NÃO' : 'SIM'}
+                  </button>
+                </div>
+
+                <div className="bg-zinc-950/60 border border-zinc-800 p-2.5 rounded-xl flex flex-col items-center gap-1.5">
+                  <span className="text-[11px] text-zinc-300">Dor no peito?</span>
+                  <button
+                    type="button"
+                    onClick={() => setChestPain(!chestPain)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+                      chestPain ? 'bg-red-600 text-white' : 'bg-zinc-700 text-zinc-200'
+                    }`}
+                  >
+                    {chestPain ? 'SIM' : 'NÃO'}
                   </button>
                 </div>
               </div>
@@ -411,18 +534,53 @@ export const CitizenApp: React.FC = () => {
             </div>
           )}
 
-          {/* VIEW 2: SEARCHING STATE (Docked Uber Loading Card) */}
+          {/* VIEW 2: SEARCHING STATE — Radar de despacho estilo Uber */}
           {activeCall && (activeCall.status === 'searching' || activeCall.status === 'offered') && (
             <div className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-3xl p-5 shadow-2xl text-center">
               <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-4" />
 
-              <div className="w-12 h-12 rounded-full bg-red-600/10 border border-red-500/20 text-red-500 mx-auto flex items-center justify-center mb-3">
-                <Clock className="w-6 h-6 animate-spin text-red-500" />
+              {/* Radar sweep: escaneia viaturas próximas no raio geodésico */}
+              <div className="relative w-36 h-36 mx-auto mb-3">
+                <div className="absolute inset-0 rounded-full bg-red-950/30 border border-red-500/30" />
+                <div className="absolute inset-4 rounded-full border border-red-500/20" />
+                <div className="absolute inset-8 rounded-full border border-red-500/20" />
+                <div
+                  className="absolute inset-0 rounded-full animate-spin"
+                  style={{
+                    background: 'conic-gradient(from 0deg, rgba(225,29,72,0.55) 0deg, transparent 90deg)',
+                    animationDuration: '1.6s',
+                  }}
+                />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-red-600/20 border border-red-500/40 text-red-500 flex items-center justify-center">
+                    <Radar className="w-6 h-6 animate-pulse" />
+                  </div>
+                </div>
+                {nearbyAmbulances.slice(0, 5).map((amb, i) => {
+                  const angle = (i / Math.max(1, Math.min(5, nearbyAmbulances.length))) * Math.PI * 2;
+                  const r = 44 + (i % 2) * 12;
+                  return (
+                    <span
+                      key={amb.id}
+                      className="absolute w-2.5 h-2.5 rounded-full bg-emerald-400 border border-white/70 animate-pulse"
+                      style={{
+                        left: `calc(50% + ${Math.cos(angle) * r}px - 5px)`,
+                        top: `calc(50% + ${Math.sin(angle) * r}px - 5px)`,
+                      }}
+                      title={amb.code}
+                    />
+                  );
+                })}
               </div>
 
               <h3 className="text-base font-bold text-white mb-1">Localizando viatura mais próxima...</h3>
-              <p className="text-xs text-zinc-400 mb-4 max-w-sm mx-auto leading-relaxed">
+              <p className="text-xs text-zinc-400 mb-1 max-w-sm mx-auto leading-relaxed">
                 A Central 192 está selecionando a viatura ideal (USA / USB / Moto) na sua região.
+              </p>
+              <p className="text-[11px] text-emerald-400 font-mono mb-4">
+                {nearbyAmbulances.length > 0
+                  ? `${nearbyAmbulances.length} viatura(s) no radar`
+                  : 'Escaneando frota disponível...'}
               </p>
 
               <div className="flex gap-2">
@@ -465,10 +623,10 @@ export const CitizenApp: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <span className="text-2xl font-black text-white tracking-tight">
-                      {activeCall.eta_minutes || 4} min
+                      {etaDisplay} min
                     </span>
                     <span className="text-[11px] text-zinc-400 block">
-                      {activeCall.distance_km ? `${activeCall.distance_km.toFixed(1)} km de você` : 'Em deslocamento'}
+                      {distDisplay}
                     </span>
                   </div>
                 </div>

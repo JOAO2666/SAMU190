@@ -16,23 +16,37 @@ router.get('/ambulances', async (_req, res) => {
   }
 });
 
-// List all hospitals / UPAs
+// List all hospitals / UPAs (spec §5: hospitals with bed telemetry)
 router.get('/hospitals', async (_req, res) => {
   try {
     const units = await dbAll(`
       SELECT id, name, type, city, district, address, phone, lat, lng,
-             distance_km, hours, services
+              distance_km, hours, services, total_beds, available_beds, specialties
       FROM units
       WHERE type IN ('Hospital', 'Pronto Atendimento', 'UPA') OR services LIKE '%Emergencia%' OR services LIKE '%Urgencia%'
       ORDER BY name ASC
     `);
 
-    // Parse services JSON
-    const parsed = units.map(u => ({
-      ...u,
-      services: typeof u.services === 'string' ? JSON.parse(u.services || '[]') : u.services,
-      emergencyBeds: 5,
-    }));
+    // Parse services JSON + expose spec-compliant bed telemetry
+    const parsed = units.map(u => {
+      const services = typeof u.services === 'string' ? JSON.parse(u.services || '[]') : (u.services || []);
+      let specialties = services;
+      try {
+        specialties = typeof u.specialties === 'string' ? JSON.parse(u.specialties || '[]') : (u.specialties || services);
+      } catch { specialties = services; }
+      const total = Number(u.total_beds ?? 20);
+      const avail = Number(u.available_beds ?? 5);
+      return {
+        ...u,
+        services,
+        specialties,
+        total_beds: total,
+        available_beds: avail,
+        totalBeds: total,
+        availableBeds: avail,
+        emergencyBeds: avail,
+      };
+    });
 
     return res.json(parsed);
   } catch (error) {
@@ -138,55 +152,80 @@ router.get('/calls/:id', async (req, res) => {
   }
 });
 
-// Create an emergency call (REST fallback)
+// Create an emergency call (REST fallback, spec: citizen:request_call)
 router.post('/calls', async (req, res) => {
   try {
     const {
-      citizenId,
-      citizenName,
-      citizenPhone,
-      pickupLat,
-      pickupLng,
-      pickupAddress,
-      severityColor,
-      chiefComplaint,
-      symptomsSummary,
-      patientName,
-      patientAge,
-      patientConscious,
-      patientBreathing,
-    } = req.body;
+      citizenId, citizen_id,
+      citizenName, citizen_name,
+      citizenPhone, citizen_phone, phone,
+      pickupLat, pickup_lat, lat,
+      pickupLng, pickup_lng, lng,
+      pickupAddress, pickup_address, address,
+      severityColor, severity_color, severity,
+      chiefComplaint, chief_complaint, complaint,
+      symptomsSummary, symptoms_summary,
+      patientName, patient_name,
+      patientAge, patient_age,
+      patientConscious, patient_conscious, conscious, unconscious,
+      patientBreathing, patient_breathing, breathing, notBreathing, not_breathing,
+      chestPain, chest_pain,
+    } = req.body || {};
+
+    const finalLat = pickupLat ?? pickup_lat ?? lat;
+    const finalLng = pickupLng ?? pickup_lng ?? lng;
+    if (!finalLat || !finalLng) {
+      return res.status(400).json({ message: 'Coordenadas GPS do local são obrigatórias.' });
+    }
+
+    const isUnconscious = unconscious !== undefined
+      ? (unconscious ? 1 : 0)
+      : (patientConscious !== undefined || patient_conscious !== undefined || conscious !== undefined
+        ? ((patientConscious ?? patient_conscious ?? conscious) ? 0 : 1)
+        : 0);
+    const isNotBreathing = (notBreathing || not_breathing)
+      ? 1
+      : (patientBreathing !== undefined || patient_breathing !== undefined || breathing !== undefined
+        ? ((patientBreathing ?? patient_breathing ?? breathing) ? 0 : 1)
+        : 0);
+    const hasChestPain = (chestPain ?? chest_pain) ? 1 : 0;
 
     const callId = `call_${crypto.randomUUID().slice(0, 12)}`;
     const timestamp = now();
 
     await dbRun(`
       INSERT INTO emergency_calls (
-        id, citizen_id, citizen_name, citizen_phone, status, severity_color,
+        id, citizen_id, citizen_name, citizen_phone, phone, status, severity_color,
         chief_complaint, symptoms_summary, patient_name, patient_age,
-        patient_conscious, patient_breathing, pickup_lat, pickup_lng, pickup_address,
+        patient_conscious, patient_breathing, unconscious, not_breathing, chest_pain,
+        pickup_lat, pickup_lng, pickup_address,
         requested_at
       ) VALUES (
-        :id, :citizen_id, :citizen_name, :citizen_phone, 'searching', :severity_color,
+        :id, :citizen_id, :citizen_name, :citizen_phone, :phone, 'searching', :severity_color,
         :chief_complaint, :symptoms_summary, :patient_name, :patient_age,
-        :patient_conscious, :patient_breathing, :pickup_lat, :pickup_lng, :pickup_address,
+        :patient_conscious, :patient_breathing, :unconscious, :not_breathing, :chest_pain,
+        :pickup_lat, :pickup_lng, :pickup_address,
         :requested_at
       )
     `, {
       id: callId,
-      citizen_id: citizenId || null,
-      citizen_name: citizenName || 'Cidadão Solicitante',
-      citizen_phone: citizenPhone || null,
-      severity_color: severityColor || 'Vermelho',
-      chief_complaint: chiefComplaint || 'Emergência Médica',
-      symptoms_summary: symptomsSummary || null,
-      patient_name: patientName || citizenName || 'Vítima',
-      patient_age: patientAge || null,
-      patient_conscious: patientConscious !== undefined ? (patientConscious ? 1 : 0) : 1,
-      patient_breathing: patientBreathing !== undefined ? (patientBreathing ? 1 : 0) : 1,
-      pickup_lat: pickupLat,
-      pickup_lng: pickupLng,
-      pickup_address: pickupAddress || 'Local da Emergência',
+      citizen_id: citizenId ?? citizen_id ?? null,
+      citizen_name: citizenName ?? citizen_name ?? 'Cidadão Solicitante',
+      citizen_phone: citizenPhone ?? citizen_phone ?? phone ?? null,
+      phone: citizenPhone ?? citizen_phone ?? phone ?? null,
+      severity_color: severityColor ?? severity_color ?? severity ?? 'Vermelho',
+      chief_complaint: chiefComplaint ?? chief_complaint ?? complaint ?? 'Emergência Médica',
+      symptoms_summary: symptomsSummary ?? symptoms_summary ?? null,
+      patient_name: patientName ?? patient_name ?? citizenName ?? citizen_name ?? 'Vítima',
+      patient_age: patientAge ?? patient_age ?? null,
+      patient_conscious: isUnconscious ? 0 : 1,
+      patient_breathing: isNotBreathing ? 0 : 1,
+      unconscious: isUnconscious,
+      not_breathing: isNotBreathing,
+      chest_pain: hasChestPain,
+      pickup_lat: finalLat,
+      pickup_lng: finalLng,
+      pickup_address: pickupAddress ?? pickup_address ?? address ?? 'Local da Emergência',
       requested_at: timestamp,
     });
 
@@ -194,6 +233,29 @@ router.post('/calls', async (req, res) => {
     return res.status(201).json(call);
   } catch (error) {
     return res.status(500).json({ message: 'Erro ao registrar chamado.', error: error.message });
+  }
+});
+
+// Cancel an emergency call (REST fallback for citizen:cancel_call)
+router.patch('/calls/:id/cancel', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason, cancellation_reason } = req.body || {};
+    const call = await dbGet('SELECT * FROM emergency_calls WHERE id = ?', [id]);
+    if (!call) return res.status(404).json({ message: 'Chamado não encontrado.' });
+    if (['completed', 'cancelled'].includes(call.status)) return res.json(call);
+    const timestamp = now();
+    await dbRun(`UPDATE emergency_calls SET status = 'cancelled', cancellation_reason = :reason WHERE id = :id`, {
+      id,
+      reason: reason || cancellation_reason || 'Cancelado pelo solicitante',
+    });
+    if (call.ambulance_id) {
+      await dbRun("UPDATE ambulances SET status = 'available', updated_at = ? WHERE id = ?", [timestamp, call.ambulance_id]);
+    }
+    const updated = await dbGet('SELECT * FROM emergency_calls WHERE id = ?', [id]);
+    return res.json(updated);
+  } catch (error) {
+    return res.status(500).json({ message: 'Erro ao cancelar chamado.', error: error.message });
   }
 });
 

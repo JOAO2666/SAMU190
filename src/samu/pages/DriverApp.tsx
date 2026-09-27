@@ -14,8 +14,18 @@ import { LiveMap } from '../components/LiveMap';
 import { ChatDrawer } from '../components/ChatDrawer';
 import { getSamuSocket } from '../socket';
 import { playEmergencySiren, stopEmergencySiren, playAcceptSound } from '../audio';
+import { bearingDegrees, fetchRoadRoute, nextManeuverInstruction, type LatLng } from '../routing';
 import { useAuth } from '../../auth';
 import type { EmergencyCall, Ambulance as AmbulanceType, DispatchOffer, HospitalUnit } from '../types';
+
+const BAPH_PROCEDURES = [
+  { id: 'oxigenioterapia', label: 'Oxigenioterapia' },
+  { id: 'acesso_venoso_periferico', label: 'Acesso venoso periférico' },
+  { id: 'monitoramento_continuo', label: 'Monitoramento contínuo' },
+  { id: 'imobilizacao', label: 'Imobilização' },
+  { id: 'controle_hemorragia', label: 'Controle de hemorragia' },
+  { id: 'ventilacao', label: 'Ventilação / Vias aéreas' },
+];
 
 export const DriverApp: React.FC = () => {
   const { user } = useAuth();
@@ -29,8 +39,10 @@ export const DriverApp: React.FC = () => {
 
   // Driver GPS Location
   const [driverPos, setDriverPos] = useState<[number, number]>([-9.3950, -40.5050]);
-  const [driverHeading] = useState<number>(45);
+  const [driverHeading, setDriverHeading] = useState<number>(45);
   const [speed, setSpeed] = useState<number>(0);
+  const [roadRoute, setRoadRoute] = useState<LatLng[]>([]);
+  const [nextManeuver, setNextManeuver] = useState<string>('Siga em frente');
 
   // Active Dispatch Offer & Call
   const [dispatchOffer, setDispatchOffer] = useState<DispatchOffer | null>(null);
@@ -39,13 +51,16 @@ export const DriverApp: React.FC = () => {
   const [hospitals, setHospitals] = useState<HospitalUnit[]>([]);
   const [selectedHospitalId, setSelectedHospitalId] = useState<string>('');
 
-  // BAPH Vital Signs Form Modal
+  // BAPH Vital Signs Form Modal (spec §4: Glasgow, PA, FC, SpO2, observações, regulação)
   const [baphOpen, setBaphOpen] = useState<boolean>(false);
   const [glasgow, setGlasgow] = useState<number>(15);
   const [sysBp, setSysBp] = useState<string>('120');
   const [diaBp, setDiaBp] = useState<string>('80');
   const [heartRate, setHeartRate] = useState<string>('82');
   const [spo2, setSpo2] = useState<string>('98');
+  const [respRate, setRespRate] = useState<string>('18');
+  const [baphNotes, setBaphNotes] = useState<string>('');
+  const [baphProcedures, setBaphProcedures] = useState<string[]>(['oxigenioterapia', 'acesso_venoso_periferico', 'monitoramento_continuo']);
   const [baphSaved, setBaphSaved] = useState<boolean>(false);
 
   // Chat Drawer
@@ -120,16 +135,65 @@ export const DriverApp: React.FC = () => {
     };
 
     socket.on('driver:dispatch_offer', onDispatchOffer);
+    socket.on('dispatch:offer', onDispatchOffer);
     socket.on('driver:force_dispatch', onForceDispatch);
     socket.on('call:status_changed', onStatusChanged);
 
     return () => {
       socket.off('driver:dispatch_offer', onDispatchOffer);
+      socket.off('dispatch:offer', onDispatchOffer);
       socket.off('driver:force_dispatch', onForceDispatch);
       socket.off('call:status_changed', onStatusChanged);
       stopEmergencySiren();
     };
   }, [driverId, selectedAmbulanceId, activeCall?.id]);
+
+  // GPS real do aparelho (quando disponível) — fallback mantém simulação de deslocamento
+  useEffect(() => {
+    if (!('geolocation' in navigator)) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        setDriverPos((prev) => {
+          if (Math.abs(prev[0] - coords[0]) > 0.00001 || Math.abs(prev[1] - coords[1]) > 0.00001) {
+            setDriverHeading(bearingDegrees(prev, coords));
+          }
+          return coords;
+        });
+        if (pos.coords.speed && pos.coords.speed > 1) {
+          setSpeed(Math.round(pos.coords.speed * 3.6));
+        }
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
+
+  // Rota viária real (OSRM) + próxima manobra turn-by-turn para o HUD
+  useEffect(() => {
+    const dest: LatLng | null = activeCall && ['dispatched', 'en_route_pickup'].includes(activeCall.status)
+      ? [activeCall.pickup_lat, activeCall.pickup_lng]
+      : activeCall && activeCall.status === 'transporting'
+        ? (() => {
+            const hosp = hospitals.find((h) => h.id === (activeCall.target_hospital_id || selectedHospitalId));
+            return hosp ? ([hosp.lat, hosp.lng] as LatLng) : null;
+          })()
+        : null;
+    if (!dest) {
+      setRoadRoute([]);
+      return;
+    }
+    let cancelled = false;
+    void fetchRoadRoute(driverPos, dest).then((route) => {
+      if (cancelled) return;
+      setRoadRoute(route.coords);
+      setNextManeuver(route.maneuver || nextManeuverInstruction(driverHeading, driverPos, dest));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [driverPos, activeCall?.status, activeCall?.pickup_lat, activeCall?.pickup_lng, activeCall?.target_hospital_id, selectedHospitalId, hospitals, driverHeading, activeCall]);
 
   // Countdown timer for dispatch offer
   useEffect(() => {
@@ -164,6 +228,9 @@ export const DriverApp: React.FC = () => {
         newLat += dLat;
         newLng += dLng;
         currentSpeed = 58;
+        if (Math.abs(dLat) > 1e-7 || Math.abs(dLng) > 1e-7) {
+          setDriverHeading(bearingDegrees(driverPos, [newLat, newLng]));
+        }
         setDriverPos([newLat, newLng]);
         setSpeed(currentSpeed);
       } else if (activeCall && activeCall.status === 'transporting' && selectedHospitalId) {
@@ -174,6 +241,9 @@ export const DriverApp: React.FC = () => {
           newLat += dLat;
           newLng += dLng;
           currentSpeed = 64;
+          if (Math.abs(dLat) > 1e-7 || Math.abs(dLng) > 1e-7) {
+            setDriverHeading(bearingDegrees(driverPos, [newLat, newLng]));
+          }
           setDriverPos([newLat, newLng]);
           setSpeed(currentSpeed);
         }
@@ -277,7 +347,7 @@ export const DriverApp: React.FC = () => {
     }
   };
 
-  // Save BAPH digital record
+  // Save BAPH digital record (spec §4: Glasgow, PA, FC, SpO2, FR, observações)
   const handleSaveBaph = () => {
     if (!activeCall) return;
     const socket = getSamuSocket();
@@ -288,25 +358,37 @@ export const DriverApp: React.FC = () => {
       diastolicBp: Number(diaBp),
       heartRate: Number(heartRate),
       oxygenSaturation: Number(spo2),
-      respiratoryRate: 18,
-      proceduresPerformed: ['oxigenioterapia', 'acesso_venoso_periferico', 'monitoramento_continuo'],
-      observations: 'Paciente estabilizado a caminho da emergência hospitalar.',
+      o2_sat: Number(spo2),
+      respiratoryRate: Number(respRate),
+      proceduresPerformed: baphProcedures,
+      observations: baphNotes || 'Paciente estabilizado a caminho da emergência hospitalar.',
+      notes: baphNotes || 'Paciente estabilizado a caminho da emergência hospitalar.',
+      filledBy: driverName,
     });
     setBaphSaved(true);
     setBaphOpen(false);
     playAcceptSound();
   };
 
+  const toggleBaphProcedure = (id: string) => {
+    setBaphProcedures((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
+  };
+
   const selectedAmbulance = ambulances.find((a) => a.id === selectedAmbulanceId);
 
-  // Route coords
-  const routePoints: [number, number][] = [driverPos];
-  if (activeCall && ['dispatched', 'en_route_pickup'].includes(activeCall.status)) {
-    routePoints.push([activeCall.pickup_lat, activeCall.pickup_lng]);
-  } else if (activeCall && activeCall.status === 'transporting' && selectedHospitalId) {
-    const hosp = hospitals.find((h) => h.id === selectedHospitalId);
-    if (hosp) routePoints.push([hosp.lat, hosp.lng]);
-  }
+  // Route coords: prefere rota viária real OSRM; fallback para linha reta
+  const routePoints: [number, number][] = roadRoute.length > 1
+    ? roadRoute
+    : (() => {
+        const pts: [number, number][] = [driverPos];
+        if (activeCall && ['dispatched', 'en_route_pickup'].includes(activeCall.status)) {
+          pts.push([activeCall.pickup_lat, activeCall.pickup_lng]);
+        } else if (activeCall && activeCall.status === 'transporting' && selectedHospitalId) {
+          const hosp = hospitals.find((h) => h.id === selectedHospitalId);
+          if (hosp) pts.push([hosp.lat, hosp.lng]);
+        }
+        return pts;
+      })();
 
   return (
     <div className="relative w-full h-screen flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden font-sans">
@@ -388,14 +470,14 @@ export const DriverApp: React.FC = () => {
           zoom={15}
           citizenPos={activeCall ? [activeCall.pickup_lat, activeCall.pickup_lng] : undefined}
           citizenAddress={activeCall?.pickup_address}
-          ambulances={selectedAmbulance ? [{ ...selectedAmbulance, current_lat: driverPos[0], current_lng: driverPos[1] }] : []}
+          ambulances={selectedAmbulance ? [{ ...selectedAmbulance, current_lat: driverPos[0], current_lng: driverPos[1], current_heading: driverHeading, speed }] : []}
           hospitals={hospitals}
           routeCoords={routePoints}
           activeAmbulanceId={selectedAmbulanceId}
           className="w-full h-full"
         />
 
-        {/* FLOATING TOP NAVIGATION HUD (Turn-by-turn banner) */}
+        {/* FLOATING TOP NAVIGATION HUD (velocímetro + próxima manobra turn-by-turn) */}
         {activeCall && (
           <div className="absolute top-4 left-4 right-4 sm:left-6 sm:w-[420px] z-[999] pointer-events-auto">
             <div className="bg-zinc-900/95 backdrop-blur-md border border-zinc-800 rounded-2xl p-4 shadow-xl flex items-center justify-between gap-3 text-white">
@@ -404,7 +486,7 @@ export const DriverApp: React.FC = () => {
                   <Navigation className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Destino</span>
+                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">{nextManeuver}</span>
                   <p className="text-xs font-bold text-white truncate">
                     {activeCall.status === 'transporting'
                       ? hospitals.find((h) => h.id === selectedHospitalId)?.name || 'Hospital de Referência'
@@ -634,9 +716,9 @@ export const DriverApp: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="text-[10px] text-zinc-400 block mb-1">Freq. Cardíaca (BPM):</label>
+                  <label className="text-[10px] text-zinc-400 block mb-1">FC (BPM):</label>
                   <input
                     type="number"
                     value={heartRate}
@@ -645,14 +727,56 @@ export const DriverApp: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-zinc-400 block mb-1">Saturação O2 (%):</label>
+                  <label className="text-[10px] text-zinc-400 block mb-1">SpO2 (%):</label>
                   <input
                     type="number"
+                    min={0}
+                    max={100}
                     value={spo2}
                     onChange={(e) => setSpo2(e.target.value)}
                     className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-white font-mono text-center"
                   />
                 </div>
+                <div>
+                  <label className="text-[10px] text-zinc-400 block mb-1">FR (irpm):</label>
+                  <input
+                    type="number"
+                    value={respRate}
+                    onChange={(e) => setRespRate(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-white font-mono text-center"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] text-zinc-400 block mb-1.5">Procedimentos em trânsito:</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {BAPH_PROCEDURES.map((proc) => (
+                    <button
+                      key={proc.id}
+                      type="button"
+                      onClick={() => toggleBaphProcedure(proc.id)}
+                      className={`px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer text-left ${
+                        baphProcedures.includes(proc.id)
+                          ? 'bg-red-950/50 border-red-500/50 text-red-200'
+                          : 'bg-zinc-950 border-zinc-800 text-zinc-400'
+                      }`}
+                    >
+                      {baphProcedures.includes(proc.id) ? '✓ ' : ''}{proc.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] text-zinc-400 block mb-1">Observações clínicas / regulação médica:</label>
+                <textarea
+                  value={baphNotes}
+                  onChange={(e) => setBaphNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Ex: Paciente consciente, PA estável, sem sangramento ativo. Regulação orientou UPAE..."
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-white text-xs placeholder-zinc-600"
+                />
               </div>
             </div>
 

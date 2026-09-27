@@ -104,10 +104,13 @@ export function setupSamuSocket(httpServer, corsOptions) {
     });
 
     // Continuous location telemetry ping from driver
-    socket.on('driver:telemetry_ping', async (data) => {
+    // Spec alias: `ambulance:telemetry` (emit) / accepts `driver:telemetry_ping`
+    async function handleTelemetryPing(data) {
       try {
-        const { ambulanceId, callId, lat, lng, speed, heading } = data;
-        if (!ambulanceId || !lat || !lng) return;
+        const { ambulanceId, ambulance_id, callId, call_id, lat, lng, speed, heading } = data || {};
+        const ambId = ambulanceId || ambulance_id;
+        const cId = callId || call_id || null;
+        if (!ambId || !lat || !lng) return;
 
         await dbRun(`
           UPDATE ambulances
@@ -115,7 +118,7 @@ export function setupSamuSocket(httpServer, corsOptions) {
               speed = :speed, last_ping_at = :last_ping_at, updated_at = :updated_at
           WHERE id = :id
         `, {
-          id: ambulanceId,
+          id: ambId,
           lat,
           lng,
           heading: heading || 0,
@@ -124,24 +127,26 @@ export function setupSamuSocket(httpServer, corsOptions) {
           updated_at: now(),
         });
 
-        if (callId) {
+        if (cId) {
           await dbRun(`
-            INSERT INTO telemetry_logs (emergency_call_id, ambulance_id, lat, lng, speed, heading, recorded_at)
-            VALUES (:emergency_call_id, :ambulance_id, :lat, :lng, :speed, :heading, :recorded_at)
+            INSERT INTO telemetry_logs (emergency_call_id, call_id, ambulance_id, lat, lng, speed, heading, recorded_at, timestamp)
+            VALUES (:emergency_call_id, :call_id, :ambulance_id, :lat, :lng, :speed, :heading, :recorded_at, :timestamp)
           `, {
-            emergency_call_id: callId,
-            ambulance_id: ambulanceId,
+            emergency_call_id: cId,
+            call_id: cId,
+            ambulance_id: ambId,
             lat,
             lng,
             speed: speed || 0,
             heading: heading || 0,
             recorded_at: now(),
+            timestamp: now(),
           });
 
           // Broadcast to requester and everyone tracking this ride
-          io.to(`incident:${callId}`).emit('ambulance:telemetry', {
-            ambulanceId,
-            callId,
+          io.to(`incident:${cId}`).emit('ambulance:telemetry', {
+            ambulanceId: ambId,
+            callId: cId,
             lat,
             lng,
             speed,
@@ -152,8 +157,8 @@ export function setupSamuSocket(httpServer, corsOptions) {
 
         // Always update central dispatch
         io.to('dispatch_central').emit('ambulance:telemetry', {
-          ambulanceId,
-          callId,
+          ambulanceId: ambId,
+          callId: cId,
           lat,
           lng,
           speed,
@@ -163,57 +168,89 @@ export function setupSamuSocket(httpServer, corsOptions) {
       } catch (err) {
         console.error('[Socket] Erro no telemetry_ping:', err);
       }
-    });
+    }
+
+    socket.on('driver:telemetry_ping', handleTelemetryPing);
+    // Spec-compliant alias: client may emit ambulance:telemetry directly
+    socket.on('ambulance:telemetry', handleTelemetryPing);
 
     // Citizen creates an emergency call
-    socket.on('citizen:request_emergency', async (data) => {
+    // Spec event: `citizen:request_call` (alias legado: `citizen:request_emergency`)
+    async function handleCitizenRequest(data) {
       try {
         const {
-          citizenId,
-          citizenName,
-          citizenPhone,
-          pickupLat,
-          pickupLng,
-          pickupAddress,
-          severityColor,
-          chiefComplaint,
-          symptomsSummary,
-          patientName,
-          patientAge,
-          patientConscious,
-          patientBreathing,
-        } = data;
+          citizenId, citizen_id,
+          citizenName, citizen_name,
+          citizenPhone, citizen_phone, phone,
+          pickupLat, pickup_lat, lat,
+          pickupLng, pickup_lng, lng,
+          pickupAddress, pickup_address, address,
+          severityColor, severity_color, severity,
+          chiefComplaint, chief_complaint, complaint,
+          symptomsSummary, symptoms_summary,
+          patientName, patient_name,
+          patientAge, patient_age,
+          patientConscious, patient_conscious, conscious, unconscious,
+          patientBreathing, patient_breathing, breathing, notBreathing, not_breathing,
+          chestPain, chest_pain, chestPainFlag,
+        } = data || {};
+
+        const finalLat = pickupLat ?? pickup_lat ?? lat;
+        const finalLng = pickupLng ?? pickup_lng ?? lng;
+        if (!finalLat || !finalLng) {
+          socket.emit('call:error', { message: 'Coordenadas GPS do local são obrigatórias.' });
+          return;
+        }
+
+        const isUnconscious = unconscious !== undefined
+          ? (unconscious ? 1 : 0)
+          : (patientConscious !== undefined || patient_conscious !== undefined || conscious !== undefined
+            ? ((patientConscious ?? patient_conscious ?? conscious) ? 0 : 1)
+            : 0);
+        const isNotBreathing = (notBreathing || not_breathing)
+          ? 1
+          : (patientBreathing !== undefined || patient_breathing !== undefined || breathing !== undefined
+            ? ((patientBreathing ?? patient_breathing ?? breathing) ? 0 : 1)
+            : 0);
+        const hasChestPain = (chestPain ?? chest_pain ?? chestPainFlag) ? 1 : 0;
+        const finalSeverity = severityColor || severity_color || severity || 'Vermelho';
 
         const callId = `call_${crypto.randomUUID().slice(0, 12)}`;
         const timestamp = now();
 
         await dbRun(`
           INSERT INTO emergency_calls (
-            id, citizen_id, citizen_name, citizen_phone, status, severity_color,
+            id, citizen_id, citizen_name, citizen_phone, phone, status, severity_color,
             chief_complaint, symptoms_summary, patient_name, patient_age,
-            patient_conscious, patient_breathing, pickup_lat, pickup_lng, pickup_address,
+            patient_conscious, patient_breathing, unconscious, not_breathing, chest_pain,
+            pickup_lat, pickup_lng, pickup_address,
             requested_at
           ) VALUES (
-            :id, :citizen_id, :citizen_name, :citizen_phone, 'searching', :severity_color,
+            :id, :citizen_id, :citizen_name, :citizen_phone, :phone, 'searching', :severity_color,
             :chief_complaint, :symptoms_summary, :patient_name, :patient_age,
-            :patient_conscious, :patient_breathing, :pickup_lat, :pickup_lng, :pickup_address,
+            :patient_conscious, :patient_breathing, :unconscious, :not_breathing, :chest_pain,
+            :pickup_lat, :pickup_lng, :pickup_address,
             :requested_at
           )
         `, {
           id: callId,
-          citizen_id: citizenId || null,
-          citizen_name: citizenName || 'Cidadão Solicitante',
-          citizen_phone: citizenPhone || null,
-          severity_color: severityColor || 'Vermelho',
-          chief_complaint: chiefComplaint || 'Emergência Médica',
-          symptoms_summary: symptomsSummary || null,
-          patient_name: patientName || citizenName || 'Vítima',
-          patient_age: patientAge || null,
-          patient_conscious: patientConscious !== undefined ? (patientConscious ? 1 : 0) : 1,
-          patient_breathing: patientBreathing !== undefined ? (patientBreathing ? 1 : 0) : 1,
-          pickup_lat: pickupLat,
-          pickup_lng: pickupLng,
-          pickup_address: pickupAddress || 'Local da Emergência',
+          citizen_id: citizenId || citizen_id || null,
+          citizen_name: citizenName || citizen_name || 'Cidadão Solicitante',
+          citizen_phone: citizenPhone || citizen_phone || phone || null,
+          phone: citizenPhone || citizen_phone || phone || null,
+          severity_color: finalSeverity,
+          chief_complaint: chiefComplaint || chief_complaint || complaint || 'Emergência Médica',
+          symptoms_summary: symptomsSummary || symptoms_summary || null,
+          patient_name: patientName || patient_name || citizenName || citizen_name || 'Vítima',
+          patient_age: patientAge ?? patient_age ?? null,
+          patient_conscious: isUnconscious ? 0 : 1,
+          patient_breathing: isNotBreathing ? 0 : 1,
+          unconscious: isUnconscious,
+          not_breathing: isNotBreathing,
+          chest_pain: hasChestPain,
+          pickup_lat: finalLat,
+          pickup_lng: finalLng,
+          pickup_address: pickupAddress || pickup_address || address || 'Local da Emergência',
           requested_at: timestamp,
         });
 
@@ -228,7 +265,45 @@ export function setupSamuSocket(httpServer, corsOptions) {
         console.error('[Socket] Erro ao criar emergência:', err);
         socket.emit('call:error', { message: 'Falha ao processar solicitação de emergência.' });
       }
-    });
+    }
+
+    socket.on('citizen:request_emergency', handleCitizenRequest);
+    socket.on('citizen:request_call', handleCitizenRequest);
+
+    // Citizen cancels an emergency call (was missing — CitizenApp already emits it)
+    async function handleCitizenCancel(data) {
+      try {
+        const { callId, call_id, id, reason, cancellationReason } = data || {};
+        const targetId = callId || call_id || id;
+        if (!targetId) return;
+        const call = await dbGet('SELECT * FROM emergency_calls WHERE id = ?', [targetId]);
+        if (!call || ['completed', 'cancelled'].includes(call.status)) return;
+        const timestamp = now();
+        await dbRun(`UPDATE emergency_calls SET status = 'cancelled', cancellation_reason = :reason WHERE id = :id`, {
+          id: targetId,
+          reason: reason || cancellationReason || 'Cancelado pelo solicitante',
+        });
+        if (call.ambulance_id) {
+          await dbRun("UPDATE ambulances SET status = 'available', updated_at = ? WHERE id = ?", [timestamp, call.ambulance_id]);
+          const freedAmb = await dbGet('SELECT * FROM ambulances WHERE id = ?', [call.ambulance_id]);
+          if (freedAmb) io.to('dispatch_central').emit('ambulance:updated', freedAmb);
+        }
+        if (dispatchTimers.has(targetId)) {
+          clearTimeout(dispatchTimers.get(targetId));
+          dispatchTimers.delete(targetId);
+        }
+        const updatedCall = await dbGet('SELECT * FROM emergency_calls WHERE id = ?', [targetId]);
+        io.to(`incident:${targetId}`).emit('call:status_changed', updatedCall);
+        io.to('dispatch_central').emit('call:updated', updatedCall);
+        socket.emit('call:cancelled', updatedCall);
+      } catch (err) {
+        console.error('[Socket] Erro ao cancelar chamado:', err);
+      }
+    }
+
+    socket.on('citizen:cancel_call', handleCitizenCancel);
+    socket.on('citizen:cancel', handleCitizenCancel);
+    socket.on('call:cancel', handleCitizenCancel);
 
     // Driver accepts call
     socket.on('driver:accept_call', async ({ callId, driverId, ambulanceId }) => {
@@ -313,26 +388,32 @@ export function setupSamuSocket(httpServer, corsOptions) {
     });
 
     // Driver advances state
+    // Emits spec event `call:status_changed` on every transition
     socket.on('driver:advance_status', async (data) => {
       try {
-        const { callId, nextStatus, targetHospitalId, targetHospitalName, cancellationReason } = data;
-        const call = await dbGet('SELECT * FROM emergency_calls WHERE id = ?', [callId]);
+        const { callId, call_id, nextStatus, status, targetHospitalId, target_hospital_id, destinationHospitalId, destination_hospital_id, targetHospitalName, target_hospital_name, destinationHospitalName, cancellationReason, cancellation_reason } = data || {};
+        const targetCallId = callId || call_id;
+        const finalStatus = nextStatus || status;
+        const call = await dbGet('SELECT * FROM emergency_calls WHERE id = ?', [targetCallId]);
         if (!call) return;
 
-        const updates = { status: nextStatus };
+        const updates = { status: finalStatus };
         const timestamp = now();
+        const hospId = targetHospitalId || target_hospital_id || destinationHospitalId || destination_hospital_id || null;
+        const hospName = targetHospitalName || target_hospital_name || destinationHospitalName || null;
 
-        if (nextStatus === 'arrived_scene') {
+        if (finalStatus === 'arrived_scene') {
           updates.arrived_scene_at = timestamp;
-        } else if (nextStatus === 'transporting') {
+        } else if (finalStatus === 'transporting') {
           updates.left_scene_at = timestamp;
-          if (targetHospitalId) {
-            updates.target_hospital_id = targetHospitalId;
-            updates.target_hospital_name = targetHospitalName;
+          if (hospId) {
+            updates.target_hospital_id = hospId;
+            updates.target_hospital_name = hospName;
+            updates.destination_hospital_id = hospId;
           }
-        } else if (nextStatus === 'arrived_hospital') {
+        } else if (finalStatus === 'arrived_hospital') {
           updates.arrived_hospital_at = timestamp;
-        } else if (nextStatus === 'completed') {
+        } else if (finalStatus === 'completed') {
           updates.completed_at = timestamp;
           // Free ambulance
           if (call.ambulance_id) {
@@ -340,8 +421,8 @@ export function setupSamuSocket(httpServer, corsOptions) {
             const freedAmb = await dbGet('SELECT * FROM ambulances WHERE id = ?', [call.ambulance_id]);
             io.to('dispatch_central').emit('ambulance:updated', freedAmb);
           }
-        } else if (nextStatus === 'cancelled') {
-          updates.cancellation_reason = cancellationReason || 'Cancelado pelo operador/equipe';
+        } else if (finalStatus === 'cancelled') {
+          updates.cancellation_reason = cancellationReason || cancellation_reason || 'Cancelado pelo operador/equipe';
           if (call.ambulance_id) {
             await dbRun("UPDATE ambulances SET status = 'available', updated_at = ? WHERE id = ?", [timestamp, call.ambulance_id]);
           }
@@ -349,66 +430,91 @@ export function setupSamuSocket(httpServer, corsOptions) {
 
         // Build dynamic SQL
         const setClauses = Object.keys(updates).map(k => `${k} = :${k}`).join(', ');
-        await dbRun(`UPDATE emergency_calls SET ${setClauses} WHERE id = :id`, { id: callId, ...updates });
+        await dbRun(`UPDATE emergency_calls SET ${setClauses} WHERE id = :id`, { id: targetCallId, ...updates });
 
-        const updatedCall = await dbGet('SELECT * FROM emergency_calls WHERE id = ?', [callId]);
-        io.to(`incident:${callId}`).emit('call:status_changed', updatedCall);
+        const updatedCall = await dbGet('SELECT * FROM emergency_calls WHERE id = ?', [targetCallId]);
+        io.to(`incident:${targetCallId}`).emit('call:status_changed', updatedCall);
         io.to('dispatch_central').emit('call:updated', updatedCall);
+        // Spec alias: also emit legacy driver room update for dashboards listening on call:status_changed
+        io.to('dispatch_central').emit('call:status_changed', updatedCall);
       } catch (err) {
         console.error('[Socket] Erro ao avançar status:', err);
       }
     });
 
     // Chat in incident room
-    socket.on('incident:send_message', async (data) => {
+    // Spec event: `incident:message` (alias legado: `incident:send_message` / `incident:new_message`)
+    async function handleIncidentMessage(data) {
       try {
-        const { callId, senderId, senderName, senderRole, message } = data;
+        const { callId, call_id, emergency_call_id, senderId, sender_id, senderName, sender_name, senderRole, sender_role, role, message, text } = data || {};
+        const targetCallId = callId || call_id || emergency_call_id;
+        const finalSenderId = senderId || sender_id || 'anonymous';
+        const finalSenderName = senderName || sender_name || 'Usuário';
+        const finalRole = senderRole || sender_role || role || 'citizen';
+        const finalText = message ?? text ?? '';
+        if (!targetCallId || !String(finalText).trim()) return;
         const msgId = `msg_${crypto.randomUUID().slice(0, 10)}`;
         const timestamp = now();
 
         await dbRun(`
-          INSERT INTO emergency_messages (id, emergency_call_id, sender_id, sender_name, sender_role, message, created_at)
-          VALUES (:id, :emergency_call_id, :sender_id, :sender_name, :sender_role, :message, :created_at)
+          INSERT INTO emergency_messages (id, emergency_call_id, sender_id, sender_name, sender_role, role, message, text, created_at, timestamp)
+          VALUES (:id, :emergency_call_id, :sender_id, :sender_name, :sender_role, :role, :message, :text, :created_at, :timestamp)
         `, {
           id: msgId,
-          emergency_call_id: callId,
-          sender_id: senderId,
-          sender_name: senderName || 'Usuário',
-          sender_role: senderRole || 'citizen',
-          message,
+          emergency_call_id: targetCallId,
+          sender_id: finalSenderId,
+          sender_name: finalSenderName,
+          sender_role: finalRole,
+          role: finalRole,
+          message: finalText,
+          text: finalText,
           created_at: timestamp,
+          timestamp,
         });
 
         const createdMsg = {
           id: msgId,
-          emergency_call_id: callId,
-          sender_id: senderId,
-          sender_name: senderName,
-          sender_role: senderRole,
-          message,
+          emergency_call_id: targetCallId,
+          sender_id: finalSenderId,
+          sender_name: finalSenderName,
+          sender_role: finalRole,
+          role: finalRole,
+          message: finalText,
+          text: finalText,
           created_at: timestamp,
+          timestamp,
         };
 
-        io.to(`incident:${callId}`).emit('incident:new_message', createdMsg);
+        io.to(`incident:${targetCallId}`).emit('incident:new_message', createdMsg);
+        io.to(`incident:${targetCallId}`).emit('incident:message', createdMsg);
       } catch (err) {
         console.error('[Socket] Erro ao enviar mensagem:', err);
       }
-    });
+    }
+
+    socket.on('incident:send_message', handleIncidentMessage);
+    socket.on('incident:message', handleIncidentMessage);
 
     // Save BAPH (Boletim de Atendimento Pré-Hospitalar)
     socket.on('driver:save_baph', async (data) => {
       try {
         const {
-          callId,
-          glasgowScore,
-          systolicBp,
-          diastolicBp,
-          heartRate,
-          oxygenSaturation,
-          respiratoryRate,
-          proceduresPerformed,
-          observations,
-        } = data;
+          callId, call_id,
+          glasgowScore, glasgow_score,
+          systolicBp, systolic_bp,
+          diastolicBp, diastolic_bp,
+          heartRate, heart_rate,
+          oxygenSaturation, oxygen_saturation, o2Sat, o2_sat,
+          respiratoryRate, respiratory_rate,
+          proceduresPerformed, procedures_performed,
+          observations, notes,
+          filledBy, filled_by,
+        } = data || {};
+        const targetCallId = callId || call_id;
+        if (!targetCallId) return;
+
+        const finalO2 = oxygenSaturation ?? oxygen_saturation ?? o2Sat ?? o2_sat ?? null;
+        const finalNotes = observations ?? notes ?? null;
 
         const baphId = `baph_${crypto.randomUUID().slice(0, 10)}`;
         const timestamp = now();
@@ -416,12 +522,12 @@ export function setupSamuSocket(httpServer, corsOptions) {
         await dbRun(`
           INSERT INTO baph_records (
             id, emergency_call_id, glasgow_score, systolic_bp, diastolic_bp,
-            heart_rate, oxygen_saturation, respiratory_rate, procedures_performed,
-            observations, created_at
+            heart_rate, oxygen_saturation, o2_sat, respiratory_rate, procedures_performed,
+            observations, notes, filled_by, filled_at, created_at
           ) VALUES (
             :id, :emergency_call_id, :glasgow_score, :systolic_bp, :diastolic_bp,
-            :heart_rate, :oxygen_saturation, :respiratory_rate, :procedures_performed,
-            :observations, :created_at
+            :heart_rate, :oxygen_saturation, :o2_sat, :respiratory_rate, :procedures_performed,
+            :observations, :notes, :filled_by, :filled_at, :created_at
           )
           ON CONFLICT(emergency_call_id) DO UPDATE SET
             glasgow_score = excluded.glasgow_score,
@@ -429,26 +535,34 @@ export function setupSamuSocket(httpServer, corsOptions) {
             diastolic_bp = excluded.diastolic_bp,
             heart_rate = excluded.heart_rate,
             oxygen_saturation = excluded.oxygen_saturation,
+            o2_sat = excluded.o2_sat,
             respiratory_rate = excluded.respiratory_rate,
             procedures_performed = excluded.procedures_performed,
             observations = excluded.observations,
+            notes = excluded.notes,
+            filled_by = excluded.filled_by,
+            filled_at = excluded.filled_at,
             created_at = excluded.created_at
         `, {
           id: baphId,
-          emergency_call_id: callId,
-          glasgow_score: glasgowScore || null,
-          systolic_bp: systolicBp || null,
-          diastolic_bp: diastolicBp || null,
-          heart_rate: heartRate || null,
-          oxygen_saturation: oxygenSaturation || null,
-          respiratory_rate: respiratoryRate || null,
-          procedures_performed: Array.isArray(proceduresPerformed) ? JSON.stringify(proceduresPerformed) : (proceduresPerformed || null),
-          observations: observations || null,
+          emergency_call_id: targetCallId,
+          glasgow_score: glasgowScore ?? glasgow_score ?? null,
+          systolic_bp: systolicBp ?? systolic_bp ?? null,
+          diastolic_bp: diastolicBp ?? diastolic_bp ?? null,
+          heart_rate: heartRate ?? heart_rate ?? null,
+          oxygen_saturation: finalO2,
+          o2_sat: finalO2,
+          respiratory_rate: respiratoryRate ?? respiratory_rate ?? null,
+          procedures_performed: Array.isArray(proceduresPerformed ?? procedures_performed) ? JSON.stringify(proceduresPerformed ?? procedures_performed) : ((proceduresPerformed ?? procedures_performed) || null),
+          observations: finalNotes,
+          notes: finalNotes,
+          filled_by: filledBy ?? filled_by ?? null,
+          filled_at: timestamp,
           created_at: timestamp,
         });
 
-        const savedBaph = await dbGet('SELECT * FROM baph_records WHERE emergency_call_id = ?', [callId]);
-        io.to(`incident:${callId}`).emit('baph:updated', savedBaph);
+        const savedBaph = await dbGet('SELECT * FROM baph_records WHERE emergency_call_id = ?', [targetCallId]);
+        io.to(`incident:${targetCallId}`).emit('baph:updated', savedBaph);
         io.to('dispatch_central').emit('baph:updated', savedBaph);
         socket.emit('baph:saved', savedBaph);
       } catch (err) {
@@ -457,10 +571,13 @@ export function setupSamuSocket(httpServer, corsOptions) {
     });
 
     // Central regulator manual dispatch override
-    socket.on('central:manual_dispatch', async ({ callId, ambulanceId }) => {
+    // Spec rooms: dispatch_central | Spec flow: forced dispatch to any pending call
+    async function handleManualDispatch({ callId, call_id, id, ambulanceId, ambulance_id }) {
       try {
-        const amb = await dbGet('SELECT * FROM ambulances WHERE id = ?', [ambulanceId]);
-        const call = await dbGet('SELECT * FROM emergency_calls WHERE id = ?', [callId]);
+        const targetCallId = callId || call_id || id;
+        const targetAmbId = ambulanceId || ambulance_id;
+        const amb = await dbGet('SELECT * FROM ambulances WHERE id = ?', [targetAmbId]);
+        const call = await dbGet('SELECT * FROM emergency_calls WHERE id = ?', [targetCallId]);
         if (!amb || !call) return;
 
         const distance = haversineDistance(
@@ -482,8 +599,8 @@ export function setupSamuSocket(httpServer, corsOptions) {
               accepted_at = :accepted_at
           WHERE id = :id
         `, {
-          id: callId,
-          ambulance_id: ambulanceId,
+          id: targetCallId,
+          ambulance_id: targetAmbId,
           driver_id: amb.current_driver_id || null,
           driver_name: amb.current_driver_name || 'Equipe SAMU',
           distance_km: distance,
@@ -491,12 +608,12 @@ export function setupSamuSocket(httpServer, corsOptions) {
           accepted_at: now(),
         });
 
-        await dbRun("UPDATE ambulances SET status = 'busy', updated_at = ? WHERE id = ?", [now(), ambulanceId]);
+        await dbRun("UPDATE ambulances SET status = 'busy', updated_at = ? WHERE id = ?", [now(), targetAmbId]);
 
-        const updatedCall = await dbGet('SELECT * FROM emergency_calls WHERE id = ?', [callId]);
-        const updatedAmb = await dbGet('SELECT * FROM ambulances WHERE id = ?', [ambulanceId]);
+        const updatedCall = await dbGet('SELECT * FROM emergency_calls WHERE id = ?', [targetCallId]);
+        const updatedAmb = await dbGet('SELECT * FROM ambulances WHERE id = ?', [targetAmbId]);
 
-        io.to(`incident:${callId}`).emit('call:accepted', { call: updatedCall, ambulance: updatedAmb });
+        io.to(`incident:${targetCallId}`).emit('call:accepted', { call: updatedCall, ambulance: updatedAmb });
         if (amb.current_driver_id) {
           io.to(`driver:${amb.current_driver_id}`).emit('driver:force_dispatch', { call: updatedCall, ambulance: updatedAmb });
         }
@@ -505,7 +622,11 @@ export function setupSamuSocket(httpServer, corsOptions) {
       } catch (err) {
         console.error('[Socket] Erro no manual_dispatch:', err);
       }
-    });
+    }
+
+    socket.on('central:manual_dispatch', handleManualDispatch);
+    socket.on('dispatch:manual', handleManualDispatch);
+    socket.on('central:force_dispatch', handleManualDispatch);
 
     socket.on('disconnect', () => {
       console.log(`[Socket] Desconectado: ${socket.id}`);
@@ -591,11 +712,14 @@ export async function matchAndDispatchCall(io, callId, excludedAmbulanceIds = []
     };
 
     // Emit offer to driver's private room
+    // Spec event: `dispatch:offer` (alias legado: `driver:dispatch_offer`)
     if (chosen.current_driver_id) {
       io.to(`driver:${chosen.current_driver_id}`).emit('driver:dispatch_offer', offerPayload);
+      io.to(`driver:${chosen.current_driver_id}`).emit('dispatch:offer', offerPayload);
     }
     // Also emit to ambulance room and central
     io.to(`ambulance:${chosen.id}`).emit('driver:dispatch_offer', offerPayload);
+    io.to(`ambulance:${chosen.id}`).emit('dispatch:offer', offerPayload);
     io.to('dispatch_central').emit('call:offered', { callId, ambulance: chosen, distanceKm });
 
     // Set 20 seconds timeout to auto-reject if driver doesn't answer
